@@ -36,17 +36,25 @@ export default function Home() {
                     track progress, and leverage AI assistance.
                   </p>
                 </div>
-                <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                  <Link href="/teacher">
-                    <Button size="lg" className="w-full">
-                      Teacher Login
-                    </Button>
-                  </Link>
-                  <Link href="/student">
-                    <Button size="lg" variant="outline" className="w-full">
-                      Student Login
-                    </Button>
-                  </Link>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2 min-[400px]:flex-row">
+                    <Link href="/login">
+                      <Button size="lg" className="w-full">
+                        Teacher Login
+                      </Button>
+                    </Link>
+                    <Link href="/login">
+                      <Button size="lg" variant="outline" className="w-full">
+                        Student Login
+                      </Button>
+                    </Link>
+                  </div>
+                  <div className="text-left text-sm text-muted-foreground">
+                    Don't have an account?{" "}
+                    <Link href="/signup" className="text-primary hover:underline">
+                      Sign up here!
+                    </Link>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center justify-center">
