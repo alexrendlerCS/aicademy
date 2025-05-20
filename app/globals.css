@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 12 76% 61%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 12 76% 61%;
+    --radius: 0.75rem;
+
+    /* Custom colors for subjects */
+    --math: 230 76% 61%;
+    --reading: 150 76% 47%;
+    --science: 45 93% 58%;
+    --history: 280 76% 61%;
+    --art: 330 76% 61%;
+
+    /* Sidebar colors */
+    --sidebar-background: 210 40% 98%;
+    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-primary: 222.2 84% 4.9%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 12 76% 61%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 12 76% 61%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 12 76% 61%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 12 76% 61%;
+
+    /* Custom colors for subjects */
+    --math: 230 76% 61%;
+    --reading: 150 76% 47%;
+    --science: 45 93% 58%;
+    --history: 280 76% 61%;
+    --art: 330 76% 61%;
+
+    /* Sidebar colors */
+    --sidebar-background: 222.2 47.4% 11.2%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 40% 98%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-accent: 12 76% 61%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 12 76% 61%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+.xp-animation {
+  animation: xp-pulse 1s ease-in-out;
+}
+
+@keyframes xp-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.subject-icon {
+  @apply flex items-center justify-center w-10 h-10 rounded-full text-white;
+}
+
+.subject-math {
+  @apply bg-[hsl(var(--math))];
+}
+
+.subject-reading {
+  @apply bg-[hsl(var(--reading))];
+}
+
+.subject-science {
+  @apply bg-[hsl(var(--science))];
+}
+
+.subject-history {
+  @apply bg-[hsl(var(--history))];
+}
+
+.subject-art {
+  @apply bg-[hsl(var(--art))];
+}
