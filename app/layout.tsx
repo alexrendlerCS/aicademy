@@ -8,7 +8,7 @@ import { Toaster } from "sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "EduAI - AI-Assisted Learning Platform",
+  title: "AIcademy - AI-Assisted Learning Platform",
   description:
     "Modern educational platform with AI assistance for K-12 classrooms",
   generator: "v0.dev",

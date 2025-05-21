@@ -150,7 +150,7 @@ export default function LoginPage() {
           <div className="flex items-center justify-center rounded-full bg-primary/10 p-3">
             <GraduationCap className="h-10 w-10 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold">Welcome to EduAI</h1>
+          <h1 className="text-2xl font-bold">Welcome to AIcademy</h1>
           <p className="text-sm text-muted-foreground">
             Sign in to your account to continue your learning journey
           </p>

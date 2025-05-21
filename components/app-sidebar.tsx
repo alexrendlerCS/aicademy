@@ -91,7 +91,7 @@ export function AppSidebar({ userType, userName }: AppSidebarProps) {
       <SidebarHeader className="flex flex-col items-center justify-center py-6">
         <div className="flex items-center space-x-2">
           <GraduationCap className="h-8 w-8 text-primary" />
-          <h1 className="text-xl font-bold">EduAI</h1>
+          <h1 className="text-xl font-bold">AIcademy</h1>
         </div>
       </SidebarHeader>
       <SidebarSeparator />

@@ -1,72 +1,94 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { GraduationCap, User, Mail, Lock, School, AlertCircle, BookOpen, Users } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { supabase } from "@/lib/supabaseClient"
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  GraduationCap,
+  User,
+  Mail,
+  Lock,
+  School,
+  AlertCircle,
+  BookOpen,
+  Users,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function SignupPage() {
-  const router = useRouter()
-  const [fullName, setFullName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [role, setRole] = useState<"student" | "teacher" | "">("")
-  const [gradeLevel, setGradeLevel] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"student" | "teacher" | "">("");
+  const [gradeLevel, setGradeLevel] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setError(null)
-  setIsLoading(true)
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
 
-  if (!fullName || !email || !password || !role) {
-    setError("Please fill in all required fields")
-    setIsLoading(false)
-    return
-  }
+    if (!fullName || !email || !password || !role) {
+      setError("Please fill in all required fields");
+      setIsLoading(false);
+      return;
+    }
 
-  if (role === "student" && !gradeLevel) {
-    setError("Please select your grade level")
-    setIsLoading(false)
-    return
-  }
+    if (role === "student" && !gradeLevel) {
+      setError("Please select your grade level");
+      setIsLoading(false);
+      return;
+    }
 
-  try {
-    // ✅ Step 1: Sign up and store metadata in Supabase Auth user
-    const { error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          role,
-          grade_level: role === "student" ? gradeLevel : null,
+    try {
+      // ✅ Step 1: Sign up and store metadata in Supabase Auth user
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            role,
+            grade_level: role === "student" ? gradeLevel : null,
+          },
         },
-      },
-    })
+      });
 
-    if (signUpError) throw signUpError
+      if (signUpError) throw signUpError;
 
-    // ✅ Step 2: Redirect to login with message
-    router.push("/login?error=email_not_confirmed")
-  } catch (err: any) {
-    console.error(err)
-    setError(err.message || "An error occurred during signup.")
-  } finally {
-    setIsLoading(false)
-  }
-}
+      // ✅ Step 2: Redirect to login with message
+      router.push("/login?error=email_not_confirmed");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "An error occurred during signup.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="container flex h-screen w-screen flex-col items-center justify-center">
@@ -76,13 +98,17 @@ export default function SignupPage() {
             <GraduationCap className="h-10 w-10 text-primary" />
           </div>
           <h1 className="text-2xl font-bold">Create an Account</h1>
-          <p className="text-sm text-muted-foreground">Join EduAI to start your personalized learning experience</p>
+          <p className="text-sm text-muted-foreground">
+            Join AIcademy to start your personalized learning experience
+          </p>
         </div>
 
         <Card>
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl">Sign up</CardTitle>
-            <CardDescription>Enter your information to create an account</CardDescription>
+            <CardDescription>
+              Enter your information to create an account
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {error && (
@@ -137,26 +163,36 @@ export default function SignupPage() {
                     required
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">Password must be at least 8 characters long</p>
+                <p className="text-xs text-muted-foreground">
+                  Password must be at least 8 characters long
+                </p>
               </div>
 
               <div className="space-y-2">
                 <Label>I am a</Label>
                 <RadioGroup
                   value={role}
-                  onValueChange={(value) => setRole(value as "student" | "teacher")}
+                  onValueChange={(value) =>
+                    setRole(value as "student" | "teacher")
+                  }
                   className="flex flex-col space-y-1 sm:flex-row sm:space-x-4 sm:space-y-0"
                 >
                   <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-muted">
                     <RadioGroupItem value="student" id="student" />
-                    <Label htmlFor="student" className="flex items-center cursor-pointer">
+                    <Label
+                      htmlFor="student"
+                      className="flex items-center cursor-pointer"
+                    >
                       <BookOpen className="mr-2 h-4 w-4 text-subject-reading" />
                       Student
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2 rounded-md border p-3 cursor-pointer hover:bg-muted">
                     <RadioGroupItem value="teacher" id="teacher" />
-                    <Label htmlFor="teacher" className="flex items-center cursor-pointer">
+                    <Label
+                      htmlFor="teacher"
+                      className="flex items-center cursor-pointer"
+                    >
                       <Users className="mr-2 h-4 w-4 text-subject-math" />
                       Teacher
                     </Label>
@@ -211,11 +247,17 @@ export default function SignupPage() {
         <div className="text-center text-sm text-muted-foreground">
           <span className="text-xs">
             By signing up, you agree to our{" "}
-            <Link href="#" className="underline underline-offset-4 hover:text-primary">
+            <Link
+              href="#"
+              className="underline underline-offset-4 hover:text-primary"
+            >
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="#" className="underline underline-offset-4 hover:text-primary">
+            <Link
+              href="#"
+              className="underline underline-offset-4 hover:text-primary"
+            >
               Privacy Policy
             </Link>
             .
@@ -223,5 +265,5 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

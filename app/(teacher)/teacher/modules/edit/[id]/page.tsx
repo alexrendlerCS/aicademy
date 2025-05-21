@@ -129,7 +129,9 @@ export default function EditModulePage({
           .select("*, users:student_id(full_name, email)")
           .eq("class_id", cls.id)
           .eq("status", "approved");
-        studentsObj[cls.id] = (memberData || []).map((m) => m.users);
+        studentsObj[cls.id] = (memberData || [])
+          .map((m) => m.users)
+          .filter(Boolean);
       }
       setStudentsByClass(studentsObj);
       setLoading(false);
@@ -450,7 +452,6 @@ export default function EditModulePage({
             variant="destructive"
             size="icon"
             onClick={() => handleDelete(moduleId)}
-            className="w-full sm:w-auto"
           >
             <Trash2 className="h-4 w-4" />
             <span className="sr-only">Delete module</span>

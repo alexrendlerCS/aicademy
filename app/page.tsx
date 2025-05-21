@@ -8,7 +8,7 @@ export default function Home() {
       <header className="w-full px-4 lg:px-6 h-14 flex items-center justify-between max-w-7xl mx-auto">
         <Link href="/" className="flex items-center gap-2 font-bold">
           <GraduationCap className="h-6 w-6 text-primary" />
-          <span>EduAI</span>
+          <span>AIcademy</span>
         </Link>
         <nav className="flex gap-4 sm:gap-6">
           <Link
@@ -105,10 +105,11 @@ export default function Home() {
                   <GraduationCap className="h-6 w-6" />
                 </div>
                 <h3 className="text-xl font-bold">Custom Modules</h3>
-                <p className="text-center text-muted-foreground">
-                  Create and customize learning modules with lessons, quizzes,
-                  and interactive content.
-                </p>
+                <div className="font-medium">Teacher: {cls.teacherName}</div>
+                <div className="text-sm text-muted-foreground">
+                  {cls.moduleCount}{" "}
+                  {cls.moduleCount === 1 ? "Module" : "Modules"}
+                </div>
               </div>
               <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -239,7 +240,7 @@ export default function Home() {
       <footer className="w-full border-t">
         <div className="max-w-7xl mx-auto flex flex-col gap-2 sm:flex-row py-6 items-center px-4 md:px-6">
           <p className="text-xs text-muted-foreground">
-            © 2025 EduAI. All rights reserved.
+            © 2025 Aicademy. All rights reserved.
           </p>
           <nav className="sm:ml-auto flex gap-4 sm:gap-6">
             <Link
