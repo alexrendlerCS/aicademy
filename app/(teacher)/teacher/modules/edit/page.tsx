@@ -1,6 +1,7 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,42 +29,28 @@ import {
   Save,
   Trash2,
   Upload,
+  Edit,
+  Eye,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/lib/supabaseClient";
+import { ModuleCard } from "@/components/module-card";
 
-interface Lesson {
-  id: string;
-  title: string;
-  content: string;
-  quizQuestions: QuizQuestion[];
-}
+export default function EditModulePage({ params }: { params: { id: string } }) {
+  const moduleId = params.id;
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
-interface QuizQuestion {
-  id: string;
-  question: string;
-  type: "multiple_choice" | "free_response";
-  options: string[];
-  correctOption: number;
-  correctAnswerText?: string;
-}
-
-export default function CreateModule() {
+  // Module state
   const [moduleTitle, setModuleTitle] = useState("");
   const [moduleSubject, setModuleSubject] = useState("");
   const [moduleDescription, setModuleDescription] = useState("");
-  const [lessons, setLessons] = useState<Lesson[]>([
-    {
-      id: "1",
-      title: "",
-      content: "",
-      quizQuestions: [],
-    },
-  ]);
-  const [error, setError] = useState<string | null>(null);
-  const [publishing, setPublishing] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
   const [status, setStatus] = useState("published");
+  const [lessons, setLessons] = useState<any[]>([]);
+
+  // Assignment state
   const [classes, setClasses] = useState<any[]>([]);
   const [studentsByClass, setStudentsByClass] = useState<Record<string, any[]>>(
     {}
@@ -71,20 +58,67 @@ export default function CreateModule() {
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
 
+  // Track deleted lessons/questions
+  const [deletedLessonIds, setDeletedLessonIds] = useState<string[]>([]);
+  const [deletedQuestionIds, setDeletedQuestionIds] = useState<string[]>([]);
+
   useEffect(() => {
-    const fetchClassesAndStudents = async () => {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !user) return;
-      // Fetch classes
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      // Fetch module
+      const { data: moduleData, error: moduleError } = await supabase
+        .from("modules")
+        .select("*")
+        .eq("id", moduleId)
+        .single();
+      if (moduleError || !moduleData) {
+        setError("Module not found.");
+        setLoading(false);
+        return;
+      }
+      setModuleTitle(moduleData.title);
+      setModuleSubject(moduleData.subject);
+      setModuleDescription(moduleData.description);
+      setStatus(moduleData.status);
+      // Fetch lessons
+      const { data: lessonData } = await supabase
+        .from("lessons")
+        .select("*, quiz_questions(*)")
+        .eq("module_id", moduleId)
+        .order("order_index");
+      setLessons(
+        (lessonData || []).map((lesson: any) => ({
+          ...lesson,
+          quizQuestions: (lesson.quiz_questions || []).map((q: any) => ({
+            id: q.id,
+            question: q.question,
+            type: q.type,
+            options: q.options || ["", "", "", ""],
+            correctOption: q.correct_index ?? 0,
+            correctAnswerText: q.correct_answer_text || "",
+          })),
+        }))
+      );
+      // Fetch assignments
+      const { data: assignmentData } = await supabase
+        .from("module_assignments")
+        .select("class_id, student_id")
+        .eq("module_id", moduleId);
+      setSelectedClassIds(
+        (assignmentData || []).filter((a) => a.class_id).map((a) => a.class_id)
+      );
+      setSelectedStudentIds(
+        (assignmentData || [])
+          .filter((a) => a.student_id)
+          .map((a) => a.student_id)
+      );
+      // Fetch classes and students
       const { data: classData } = await supabase
         .from("classes")
         .select("*")
-        .eq("teacher_id", user.id);
+        .eq("teacher_id", moduleData.teacher_id);
       setClasses(classData || []);
-      // Fetch approved students for each class
       const studentsObj: Record<string, any[]> = {};
       for (const cls of classData || []) {
         const { data: memberData } = await supabase
@@ -95,46 +129,47 @@ export default function CreateModule() {
         studentsObj[cls.id] = (memberData || []).map((m) => m.users);
       }
       setStudentsByClass(studentsObj);
+      setLoading(false);
     };
-    fetchClassesAndStudents();
-  }, []);
+    fetchData();
+  }, [moduleId]);
 
+  // Lesson/quiz logic (reuse from create page)
   const addLesson = () => {
     setLessons([
       ...lessons,
       {
-        id: `${lessons.length + 1}`,
+        id: undefined, // undefined means new lesson
         title: "",
         content: "",
         quizQuestions: [],
       },
     ]);
   };
-
   const removeLesson = (id: string) => {
-    if (lessons.length > 1) {
-      setLessons(lessons.filter((lesson) => lesson.id !== id));
-    }
+    setLessons((prev) => {
+      const lesson = prev.find((l) => l.id === id);
+      if (lesson && lesson.id) setDeletedLessonIds((d) => [...d, lesson.id]);
+      return prev.filter((lesson) => lesson.id !== id);
+    });
   };
-
-  const updateLesson = (id: string, field: keyof Lesson, value: any) => {
-    setLessons(
-      lessons.map((lesson) =>
+  const updateLesson = (id: string, field: string, value: any) => {
+    setLessons((prev) =>
+      prev.map((lesson) =>
         lesson.id === id ? { ...lesson, [field]: value } : lesson
       )
     );
   };
-
   const addQuizQuestion = (lessonId: string) => {
-    setLessons(
-      lessons.map((lesson) =>
+    setLessons((prev) =>
+      prev.map((lesson) =>
         lesson.id === lessonId
           ? {
               ...lesson,
               quizQuestions: [
                 ...lesson.quizQuestions,
                 {
-                  id: `${lesson.quizQuestions.length + 1}`,
+                  id: undefined,
                   question: "",
                   type: "multiple_choice",
                   options: ["", "", "", ""],
@@ -147,71 +182,67 @@ export default function CreateModule() {
       )
     );
   };
-
   const updateQuizQuestion = (
     lessonId: string,
     questionId: string,
-    field: keyof QuizQuestion,
+    field: string,
     value: any
   ) => {
-    setLessons(
-      lessons.map((lesson) =>
+    setLessons((prev) =>
+      prev.map((lesson) =>
         lesson.id === lessonId
           ? {
               ...lesson,
-              quizQuestions: lesson.quizQuestions.map((question) =>
-                question.id === questionId
-                  ? { ...question, [field]: value }
-                  : question
+              quizQuestions: lesson.quizQuestions.map((q) =>
+                q.id === questionId ? { ...q, [field]: value } : q
               ),
             }
           : lesson
       )
     );
   };
-
   const updateQuizOption = (
     lessonId: string,
     questionId: string,
     optionIndex: number,
     value: string
   ) => {
-    setLessons(
-      lessons.map((lesson) =>
+    setLessons((prev) =>
+      prev.map((lesson) =>
         lesson.id === lessonId
           ? {
               ...lesson,
-              quizQuestions: lesson.quizQuestions.map((question) =>
-                question.id === questionId
+              quizQuestions: lesson.quizQuestions.map((q) =>
+                q.id === questionId
                   ? {
-                      ...question,
-                      options: question.options.map((option, index) =>
-                        index === optionIndex ? value : option
+                      ...q,
+                      options: q.options.map((opt, idx) =>
+                        idx === optionIndex ? value : opt
                       ),
                     }
-                  : question
+                  : q
               ),
             }
           : lesson
       )
     );
   };
-
   const removeQuizQuestion = (lessonId: string, questionId: string) => {
-    setLessons(
-      lessons.map((lesson) =>
+    setLessons((prev) =>
+      prev.map((lesson) =>
         lesson.id === lessonId
           ? {
               ...lesson,
-              quizQuestions: lesson.quizQuestions.filter(
-                (question) => question.id !== questionId
-              ),
+              quizQuestions: lesson.quizQuestions.filter((q) => {
+                if (q.id === questionId && q.id)
+                  setDeletedQuestionIds((d) => [...d, q.id]);
+                return q.id !== questionId;
+              }),
             }
           : lesson
       )
     );
   };
-
   const validate = () => {
     if (
       !moduleTitle.trim() ||
@@ -232,7 +263,7 @@ export default function CreateModule() {
           return false;
         }
         if (question.type === "multiple_choice") {
-          if (!question.options.every((opt) => opt.trim())) {
+          if (!question.options.every((opt: string) => opt.trim())) {
             setError(
               "All answer options must be filled for each multiple choice question."
             );
@@ -271,86 +302,136 @@ export default function CreateModule() {
     setPublishing(true);
     setError(null);
     try {
-      // Get current user (teacher)
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !user) throw new Error("Could not get current user.");
-      // Insert module
-      const { data: moduleData, error: moduleError } = await supabase
+      // Update module
+      const { error: moduleError } = await supabase
         .from("modules")
-        .insert({
+        .update({
           title: moduleTitle,
           subject: moduleSubject,
           description: moduleDescription,
-          teacher_id: user.id,
           status,
-          visibility: "all",
         })
-        .select()
-        .single();
-      if (moduleError || !moduleData)
-        throw new Error("Failed to create module.");
-      // Insert lessons
+        .eq("id", moduleId);
+      if (moduleError) throw new Error("Failed to update module.");
+      // Handle lessons
       for (const [orderIndex, lesson] of lessons.entries()) {
-        const { data: lessonData, error: lessonError } = await supabase
-          .from("lessons")
-          .insert({
-            module_id: moduleData.id,
-            title: lesson.title,
-            content: lesson.content,
-            order_index: orderIndex,
-          })
-          .select()
-          .single();
-        if (lessonError || !lessonData)
-          throw new Error("Failed to create lesson.");
-        // Insert quiz questions for this lesson
+        if (lesson.id) {
+          // Update existing lesson
+          const { error: lessonError } = await supabase
+            .from("lessons")
+            .update({
+              title: lesson.title,
+              content: lesson.content,
+              order_index: orderIndex,
+            })
+            .eq("id", lesson.id);
+          if (lessonError) throw new Error("Failed to update lesson.");
+        } else {
+          // Insert new lesson
+          const { data: newLesson, error: lessonError } = await supabase
+            .from("lessons")
+            .insert({
+              module_id: moduleId,
+              title: lesson.title,
+              content: lesson.content,
+              order_index: orderIndex,
+            })
+            .select()
+            .single();
+          if (lessonError || !newLesson)
+            throw new Error("Failed to create lesson.");
+          lesson.id = newLesson.id;
+        }
+        // Handle quiz questions
         for (const question of lesson.quizQuestions) {
-          const insertObj: any = {
-            lesson_id: lessonData.id,
-            question: question.question,
-            type: question.type,
-          };
-          if (question.type === "multiple_choice") {
-            insertObj.options = question.options;
-            insertObj.correct_index = question.correctOption;
-            insertObj.correct_answer_text = null;
-          } else if (question.type === "free_response") {
-            insertObj.options = null;
-            insertObj.correct_index = null;
-            insertObj.correct_answer_text = question.correctAnswerText;
+          if (question.id) {
+            // Update existing question
+            const { error: questionError } = await supabase
+              .from("quiz_questions")
+              .update({
+                question: question.question,
+                type: question.type,
+                options:
+                  question.type === "multiple_choice" ? question.options : null,
+                correct_index:
+                  question.type === "multiple_choice"
+                    ? question.correctOption
+                    : null,
+                correct_answer_text:
+                  question.type === "free_response"
+                    ? question.correctAnswerText
+                    : null,
+              })
+              .eq("id", question.id);
+            if (questionError)
+              throw new Error("Failed to update quiz question.");
+          } else {
+            // Insert new question
+            const { error: questionError } = await supabase
+              .from("quiz_questions")
+              .insert({
+                lesson_id: lesson.id,
+                question: question.question,
+                type: question.type,
+                options:
+                  question.type === "multiple_choice" ? question.options : null,
+                correct_index:
+                  question.type === "multiple_choice"
+                    ? question.correctOption
+                    : null,
+                correct_answer_text:
+                  question.type === "free_response"
+                    ? question.correctAnswerText
+                    : null,
+              });
+            if (questionError)
+              throw new Error("Failed to create quiz question.");
           }
-          const { error: questionError } = await supabase
-            .from("quiz_questions")
-            .insert(insertObj);
-          if (questionError) throw new Error("Failed to create quiz question.");
         }
       }
-      // Insert module assignments
+      // Delete removed lessons and questions
+      for (const lessonId of deletedLessonIds) {
+        await supabase.from("lessons").delete().eq("id", lessonId);
+      }
+      for (const questionId of deletedQuestionIds) {
+        await supabase.from("quiz_questions").delete().eq("id", questionId);
+      }
+      // Update assignments: remove all, then re-insert
+      await supabase
+        .from("module_assignments")
+        .delete()
+        .eq("module_id", moduleId);
       for (const classId of selectedClassIds) {
         await supabase.from("module_assignments").insert({
-          module_id: moduleData.id,
+          module_id: moduleId,
           class_id: classId,
-          assigned_by: user.id,
         });
       }
       for (const studentId of selectedStudentIds) {
         await supabase.from("module_assignments").insert({
-          module_id: moduleData.id,
+          module_id: moduleId,
           student_id: studentId,
-          assigned_by: user.id,
         });
       }
-      setSuccess("Module published and assigned successfully!");
+      setSuccess("Module updated successfully!");
     } catch (err: any) {
-      setError(err.message || "An error occurred while publishing.");
+      setError(err.message || "An error occurred while saving.");
     } finally {
       setPublishing(false);
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this module?")) return;
+    const { error } = await supabase.from("modules").delete().eq("id", id);
+    if (!error) {
+      router.push("/teacher/modules");
+    } else {
+      alert("Failed to delete module.");
+    }
+  };
+
+  // Render the same UI as the create page, but prefilled and with Save/Update button
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -361,20 +442,25 @@ export default function CreateModule() {
               <span className="sr-only">Back</span>
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Create Module</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Edit Module</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">Save Draft</Button>
           <Button onClick={handlePublish} disabled={publishing}>
             <Save className="mr-2 h-4 w-4" />
-            {publishing ? "Publishing..." : "Publish"}
+            {publishing ? "Saving..." : "Save Changes"}
+          </Button>
+          <Button
+            variant="destructive"
+            size="icon"
+            onClick={() => handleDelete(moduleId)}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="sr-only">Delete module</span>
           </Button>
         </div>
       </div>
-
       {error && <div className="text-red-500 mt-2">{error}</div>}
       {success && <div className="text-green-600 mt-2">{success}</div>}
-
       <div className="grid gap-6 md:grid-cols-6">
         <div className="md:col-span-4 space-y-6">
           <Card>
@@ -419,7 +505,6 @@ export default function CreateModule() {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Lessons</CardTitle>
@@ -427,7 +512,10 @@ export default function CreateModule() {
             <CardContent className="space-y-4">
               <Accordion type="multiple" className="w-full">
                 {lessons.map((lesson, index) => (
-                  <AccordionItem key={lesson.id} value={lesson.id}>
+                  <AccordionItem
+                    key={lesson.id || index}
+                    value={lesson.id || `new-${index}`}
+                  >
                     <AccordionTrigger className="hover:no-underline">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center justify-center h-6 w-6 rounded-full bg-muted text-sm font-medium">
@@ -441,11 +529,13 @@ export default function CreateModule() {
                         <div className="flex items-center gap-2">
                           <GripVertical className="h-5 w-5 text-muted-foreground" />
                           <div className="space-y-2 flex-1">
-                            <Label htmlFor={`lesson-title-${lesson.id}`}>
+                            <Label
+                              htmlFor={`lesson-title-${lesson.id || index}`}
+                            >
                               Lesson Title
                             </Label>
                             <Input
-                              id={`lesson-title-${lesson.id}`}
+                              id={`lesson-title-${lesson.id || index}`}
                               value={lesson.title}
                               onChange={(e) =>
                                 updateLesson(lesson.id, "title", e.target.value)
@@ -464,29 +554,15 @@ export default function CreateModule() {
                             <span className="sr-only">Remove lesson</span>
                           </Button>
                         </div>
-
                         <div className="space-y-2">
-                          <Label htmlFor={`lesson-content-${lesson.id}`}>
+                          <Label
+                            htmlFor={`lesson-content-${lesson.id || index}`}
+                          >
                             Lesson Content
                           </Label>
                           <div className="border rounded-md p-1">
-                            <div className="flex items-center gap-1 mb-2 bg-muted/50 rounded p-1">
-                              <Button variant="ghost" size="sm">
-                                Bold
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                Italic
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                List
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <Upload className="h-4 w-4 mr-1" />
-                                Image
-                              </Button>
-                            </div>
                             <Textarea
-                              id={`lesson-content-${lesson.id}`}
+                              id={`lesson-content-${lesson.id || index}`}
                               value={lesson.content}
                               onChange={(e) =>
                                 updateLesson(
@@ -501,7 +577,6 @@ export default function CreateModule() {
                             />
                           </div>
                         </div>
-
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <Label>Quiz Questions</Label>
@@ -514,12 +589,11 @@ export default function CreateModule() {
                               Add Question
                             </Button>
                           </div>
-
                           {lesson.quizQuestions.length > 0 ? (
                             <div className="space-y-6">
                               {lesson.quizQuestions.map((question, qIndex) => (
                                 <div
-                                  key={question.id}
+                                  key={question.id || qIndex}
                                   className="space-y-4 border rounded-md p-4"
                                 >
                                   <div className="flex items-center justify-between">
@@ -543,15 +617,18 @@ export default function CreateModule() {
                                       </span>
                                     </Button>
                                   </div>
-
                                   <div className="space-y-2">
                                     <Label
-                                      htmlFor={`question-${lesson.id}-${question.id}`}
+                                      htmlFor={`question-${
+                                        lesson.id || index
+                                      }-${question.id || qIndex}`}
                                     >
                                       Question
                                     </Label>
                                     <Input
-                                      id={`question-${lesson.id}-${question.id}`}
+                                      id={`question-${lesson.id || index}-${
+                                        question.id || qIndex
+                                      }`}
                                       value={question.question}
                                       onChange={(e) =>
                                         updateQuizQuestion(
@@ -564,7 +641,6 @@ export default function CreateModule() {
                                       placeholder="Enter question"
                                     />
                                   </div>
-
                                   <div className="space-y-2">
                                     <Label>Question Type</Label>
                                     <Select
@@ -574,7 +650,7 @@ export default function CreateModule() {
                                           lesson.id,
                                           question.id,
                                           "type",
-                                          val as any
+                                          val
                                         )
                                       }
                                     >
@@ -591,20 +667,25 @@ export default function CreateModule() {
                                       </SelectContent>
                                     </Select>
                                   </div>
-
                                   {question.type === "multiple_choice" ? (
                                     <div className="space-y-3">
                                       <Label>Answer Options</Label>
                                       {question.options.map(
-                                        (option, oIndex) => (
+                                        (option: string, oIndex: number) => (
                                           <div
                                             key={oIndex}
                                             className="flex items-center gap-2"
                                           >
                                             <input
                                               type="radio"
-                                              id={`option-${lesson.id}-${question.id}-${oIndex}`}
-                                              name={`question-${lesson.id}-${question.id}`}
+                                              id={`option-${
+                                                lesson.id || index
+                                              }-${
+                                                question.id || qIndex
+                                              }-${oIndex}`}
+                                              name={`question-${
+                                                lesson.id || index
+                                              }-${question.id || qIndex}`}
                                               checked={
                                                 question.correctOption ===
                                                 oIndex
@@ -669,7 +750,6 @@ export default function CreateModule() {
                   </AccordionItem>
                 ))}
               </Accordion>
-
               <Button variant="outline" className="w-full" onClick={addLesson}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Lesson
@@ -677,7 +757,6 @@ export default function CreateModule() {
             </CardContent>
           </Card>
         </div>
-
         <div className="md:col-span-2 space-y-6">
           <Card>
             <CardHeader>
@@ -690,7 +769,6 @@ export default function CreateModule() {
                 ) : (
                   <div className="h-6 bg-muted rounded animate-pulse" />
                 )}
-
                 {moduleSubject ? (
                   <div className="flex items-center gap-2">
                     <SubjectIcon
@@ -702,9 +780,7 @@ export default function CreateModule() {
                 ) : (
                   <div className="h-8 bg-muted rounded animate-pulse" />
                 )}
-
                 <Separator />
-
                 <div>
                   <h4 className="text-sm font-medium mb-2">Description</h4>
                   {moduleDescription ? (
@@ -719,14 +795,15 @@ export default function CreateModule() {
                     </div>
                   )}
                 </div>
-
                 <Separator />
-
                 <div>
                   <h4 className="text-sm font-medium mb-2">Lessons</h4>
                   <ul className="space-y-2">
                     {lessons.map((lesson, index) => (
-                      <li key={lesson.id} className="flex items-center gap-2">
+                      <li
+                        key={lesson.id || index}
+                        className="flex items-center gap-2"
+                      >
                         <div className="flex items-center justify-center h-5 w-5 rounded-full bg-muted text-xs">
                           {index + 1}
                         </div>
@@ -740,44 +817,6 @@ export default function CreateModule() {
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Publishing Options</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger id="status">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="visibility">Visibility</Label>
-                <Select defaultValue="all">
-                  <SelectTrigger id="visibility">
-                    <SelectValue placeholder="Select visibility" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Students</SelectItem>
-                    <SelectItem value="specific">Specific Classes</SelectItem>
-                    <SelectItem value="individual">
-                      Individual Students
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Assign Module</CardTitle>

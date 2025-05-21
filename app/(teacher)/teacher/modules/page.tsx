@@ -1,63 +1,88 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { ModuleCard } from "@/components/module-card"
-import { PlusCircle, Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-// Mock data for teacher modules
-const modules = [
-  {
-    id: "1",
-    title: "Algebra Fundamentals",
-    subject: "math" as const,
-    description: "Learn the basics of algebra including variables, equations, and functions.",
-    lessonCount: 8,
-  },
-  {
-    id: "2",
-    title: "Reading Comprehension",
-    subject: "reading" as const,
-    description: "Develop critical reading skills through analysis of various text types.",
-    lessonCount: 6,
-  },
-  {
-    id: "3",
-    title: "Scientific Method",
-    subject: "science" as const,
-    description: "Understand the process of scientific inquiry and experimentation.",
-    lessonCount: 5,
-  },
-  {
-    id: "4",
-    title: "Ancient Civilizations",
-    subject: "history" as const,
-    description: "Explore the rise and fall of ancient civilizations and their contributions to modern society.",
-    lessonCount: 7,
-  },
-  {
-    id: "5",
-    title: "Creative Expression",
-    subject: "art" as const,
-    description: "Discover various art forms and techniques for creative self-expression.",
-    lessonCount: 4,
-  },
-  {
-    id: "6",
-    title: "World Geography",
-    subject: "geography" as const,
-    description: "Learn about countries, continents, and geographical features around the world.",
-    lessonCount: 6,
-  },
-]
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ModuleCard } from "@/components/module-card";
+import { PlusCircle, Search, Edit, Trash2, Eye } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function TeacherModules() {
+  const router = useRouter();
+  const [modules, setModules] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState<string>("all");
+
+  useEffect(() => {
+    const fetchModules = async () => {
+      setLoading(true);
+      setError(null);
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) {
+        setError("Could not get current user.");
+        setLoading(false);
+        return;
+      }
+      const { data, error: modulesError } = await supabase
+        .from("modules")
+        .select("*, lessons(count)")
+        .eq("teacher_id", user.id)
+        .order("created_at", { ascending: false });
+      if (modulesError) {
+        setError("Could not fetch modules.");
+        setLoading(false);
+        return;
+      }
+      setModules(data || []);
+      setLoading(false);
+    };
+    fetchModules();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this module?")) return;
+    const { error } = await supabase.from("modules").delete().eq("id", id);
+    if (!error) {
+      setModules((prev) => prev.filter((m) => m.id !== id));
+    } else {
+      alert("Failed to delete module.");
+    }
+  };
+
+  // Filter and search logic
+  const filteredModules = modules.filter((module) => {
+    const matchesSearch =
+      !search ||
+      module.title.toLowerCase().includes(search.toLowerCase()) ||
+      module.description.toLowerCase().includes(search.toLowerCase());
+    const matchesSubject =
+      !subjectFilter ||
+      subjectFilter === "all" ||
+      module.subject === subjectFilter;
+    return matchesSearch && matchesSubject;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My Modules</h1>
-          <p className="text-muted-foreground">Manage and organize your educational modules</p>
+          <p className="text-muted-foreground">
+            Manage and organize your educational modules
+          </p>
         </div>
         <Button asChild>
           <Link href="/teacher/modules/create">
@@ -70,11 +95,17 @@ export default function TeacherModules() {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input type="search" placeholder="Search modules..." className="pl-8" />
+          <Input
+            type="search"
+            placeholder="Search modules..."
+            className="pl-8"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        <Select defaultValue="all">
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Subject" />
+        <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by subject" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Subjects</SelectItem>
@@ -88,19 +119,26 @@ export default function TeacherModules() {
         </Select>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {modules.map((module) => (
-          <ModuleCard
-            key={module.id}
-            id={module.id}
-            title={module.title}
-            subject={module.subject}
-            description={module.description}
-            lessonCount={module.lessonCount}
-            userType="teacher"
-          />
-        ))}
-      </div>
+      {loading ? (
+        <div>Loading modules...</div>
+      ) : error ? (
+        <div className="text-red-500">{error}</div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredModules.map((module) => (
+            <ModuleCard
+              key={module.id}
+              id={module.id}
+              title={module.title}
+              subject={module.subject}
+              description={module.description}
+              lessonCount={module.lessons?.length || module.lessons?.count || 0}
+              userType="teacher"
+            />
+          ))}
+          {filteredModules.length === 0 && <div>No modules found.</div>}
+        </div>
+      )}
     </div>
-  )
+  );
 }

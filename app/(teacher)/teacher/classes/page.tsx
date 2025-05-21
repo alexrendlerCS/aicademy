@@ -4,7 +4,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus } from "lucide-react";
+import { Plus, Users, Mail, Check, X, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 function generateClassCode() {
   // Simple random code generator (6 alphanumeric chars)
@@ -23,6 +24,7 @@ export default function TeacherClasses() {
     string | null
   >(null);
   const [refresh, setRefresh] = useState(0);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const fetchClassesAndMemberships = async () => {
@@ -141,21 +143,30 @@ export default function TeacherClasses() {
     setRefresh((r) => r + 1);
   };
 
+  const filteredClasses = classes.filter((cls) =>
+    cls.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
         <div className="flex gap-2">
-          <Input
-            placeholder="Class name"
-            value={newClassName}
-            onChange={(e) => setNewClassName(e.target.value)}
-            disabled={creating}
-          />
           <Button onClick={handleCreateClass} disabled={creating}>
             <Plus className="mr-2 h-4 w-4" />
             {creating ? "Creating..." : "Create Class"}
           </Button>
+        </div>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-4 mb-2">
+        <div className="relative flex-1">
+          <Input
+            type="search"
+            placeholder="Search classes..."
+            className="pl-8"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
       {error && <div className="text-red-500 mt-2">{error}</div>}
@@ -163,83 +174,98 @@ export default function TeacherClasses() {
         <div>Loading classes...</div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {classes.map((cls) => {
+          {filteredClasses.map((cls) => {
             const classMembers = memberships[cls.id] || [];
             const pending = classMembers.filter((m) => m.status === "pending");
             const approved = classMembers.filter(
               (m) => m.status === "approved"
             );
             return (
-              <Card key={cls.id}>
+              <Card key={cls.id} className="shadow hover:shadow-lg transition">
                 <CardHeader>
-                  <CardTitle>{cls.name}</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>{cls.name}</CardTitle>
+                    <Badge variant="outline" className="font-mono">
+                      <Users className="h-4 w-4 mr-1 inline" />
+                      {approved.length}
+                    </Badge>
+                  </div>
+                  <div className="mt-2">
+                    <Badge variant="secondary" className="font-mono">
+                      Code: {cls.code}
+                    </Badge>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div>
-                    Class Code:{" "}
-                    <span className="font-mono bg-muted px-2 py-1 rounded">
-                      {cls.code}
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <h4 className="font-semibold">Pending Students</h4>
+                  <div className="mb-4">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Mail className="h-4 w-4" /> Pending Students
+                    </h4>
                     {pending.length === 0 ? (
                       <div className="text-muted-foreground text-sm">None</div>
                     ) : (
-                      <ul className="space-y-1">
+                      <ul className="space-y-1 bg-muted/50 rounded p-2">
                         {pending.map((m) => (
                           <li key={m.id} className="flex items-center gap-2">
-                            <span>
+                            <Badge variant="outline">
                               {m.users?.full_name ||
                                 m.users?.email ||
                                 "Unknown"}
-                            </span>
+                            </Badge>
                             <Button
-                              size="sm"
+                              size="icon"
+                              variant="default"
                               onClick={() => handleApprove(m.id)}
+                              title="Approve"
                             >
-                              Approve
+                              <Check className="h-4 w-4" />
                             </Button>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="destructive"
                               onClick={() => handleDeny(m.id)}
+                              title="Deny"
                             >
-                              Deny
+                              <X className="h-4 w-4" />
                             </Button>
                           </li>
                         ))}
                       </ul>
                     )}
                   </div>
-                  <div className="mt-4">
-                    <h4 className="font-semibold">Approved Students</h4>
+                  <div className="mb-4">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Users className="h-4 w-4" /> Approved Students
+                    </h4>
                     {approved.length === 0 ? (
                       <div className="text-muted-foreground text-sm">None</div>
                     ) : (
-                      <ul className="space-y-1">
+                      <ul className="space-y-1 bg-muted/50 rounded p-2">
                         {approved.map((m) => (
                           <li key={m.id} className="flex items-center gap-2">
-                            <span>
+                            <Badge variant="outline">
                               {m.users?.full_name ||
                                 m.users?.email ||
                                 "Unknown"}
-                            </span>
+                            </Badge>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="destructive"
                               onClick={() => handleRemove(m.id)}
+                              title="Remove"
                             >
-                              Remove
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </li>
                         ))}
                       </ul>
                     )}
                   </div>
-                  <div className="mt-4">
-                    <h4 className="font-semibold">Add Student by Email</h4>
-                    <div className="flex gap-2">
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Plus className="h-4 w-4" /> Add Student by Email
+                    </h4>
+                    <div className="flex gap-2 mt-2">
                       <Input
                         placeholder="Student email"
                         value={
@@ -266,7 +292,7 @@ export default function TeacherClasses() {
               </Card>
             );
           })}
-          {classes.length === 0 && <div>No classes found.</div>}
+          {filteredClasses.length === 0 && <div>No classes found.</div>}
         </div>
       )}
     </div>
