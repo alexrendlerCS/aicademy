@@ -149,10 +149,21 @@ export default function TeacherClasses() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
-        <div className="flex gap-2">
-          <Button onClick={handleCreateClass} disabled={creating}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Input
+            placeholder="Class name"
+            value={newClassName}
+            onChange={(e) => setNewClassName(e.target.value)}
+            disabled={creating}
+            className="w-full sm:w-auto"
+          />
+          <Button
+            onClick={handleCreateClass}
+            disabled={creating}
+            className="w-full sm:w-auto"
+          >
             <Plus className="mr-2 h-4 w-4" />
             {creating ? "Creating..." : "Create Class"}
           </Button>
