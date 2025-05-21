@@ -193,7 +193,7 @@ export default function EditModulePage({ params }: { params: { id: string } }) {
         lesson.id === lessonId
           ? {
               ...lesson,
-              quizQuestions: lesson.quizQuestions.map((q) =>
+              quizQuestions: lesson.quizQuestions.map((q: any) =>
                 q.id === questionId ? { ...q, [field]: value } : q
               ),
             }
@@ -212,11 +212,11 @@ export default function EditModulePage({ params }: { params: { id: string } }) {
         lesson.id === lessonId
           ? {
               ...lesson,
-              quizQuestions: lesson.quizQuestions.map((q) =>
+              quizQuestions: lesson.quizQuestions.map((q: any) =>
                 q.id === questionId
                   ? {
                       ...q,
-                      options: q.options.map((opt, idx) =>
+                      options: q.options.map((opt: string, idx: number) =>
                         idx === optionIndex ? value : opt
                       ),
                     }
@@ -233,7 +233,7 @@ export default function EditModulePage({ params }: { params: { id: string } }) {
         lesson.id === lessonId
           ? {
               ...lesson,
-              quizQuestions: lesson.quizQuestions.filter((q) => {
+              quizQuestions: lesson.quizQuestions.filter((q: any) => {
                 if (q.id === questionId && q.id)
                   setDeletedQuestionIds((d) => [...d, q.id]);
                 return q.id !== questionId;
@@ -434,7 +434,7 @@ export default function EditModulePage({ params }: { params: { id: string } }) {
   // Render the same UI as the create page, but prefilled and with Save/Update button
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/teacher/modules">
@@ -444,8 +444,12 @@ export default function EditModulePage({ params }: { params: { id: string } }) {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Edit Module</h1>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handlePublish} disabled={publishing}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button
+            onClick={handlePublish}
+            disabled={publishing}
+            className="w-full sm:w-auto"
+          >
             <Save className="mr-2 h-4 w-4" />
             {publishing ? "Saving..." : "Save Changes"}
           </Button>
@@ -453,6 +457,7 @@ export default function EditModulePage({ params }: { params: { id: string } }) {
             variant="destructive"
             size="icon"
             onClick={() => handleDelete(moduleId)}
+            className="w-full sm:w-auto"
           >
             <Trash2 className="h-4 w-4" />
             <span className="sr-only">Delete module</span>
@@ -591,153 +596,157 @@ export default function EditModulePage({ params }: { params: { id: string } }) {
                           </div>
                           {lesson.quizQuestions.length > 0 ? (
                             <div className="space-y-6">
-                              {lesson.quizQuestions.map((question, qIndex) => (
-                                <div
-                                  key={question.id || qIndex}
-                                  className="space-y-4 border rounded-md p-4"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <h4 className="font-medium">
-                                      Question {qIndex + 1}
-                                    </h4>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() =>
-                                        removeQuizQuestion(
-                                          lesson.id,
-                                          question.id
-                                        )
-                                      }
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                      <span className="sr-only">
-                                        Remove question
-                                      </span>
-                                    </Button>
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label
-                                      htmlFor={`question-${
-                                        lesson.id || index
-                                      }-${question.id || qIndex}`}
-                                    >
-                                      Question
-                                    </Label>
-                                    <Input
-                                      id={`question-${lesson.id || index}-${
-                                        question.id || qIndex
-                                      }`}
-                                      value={question.question}
-                                      onChange={(e) =>
-                                        updateQuizQuestion(
-                                          lesson.id,
-                                          question.id,
-                                          "question",
-                                          e.target.value
-                                        )
-                                      }
-                                      placeholder="Enter question"
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label>Question Type</Label>
-                                    <Select
-                                      value={question.type}
-                                      onValueChange={(val) =>
-                                        updateQuizQuestion(
-                                          lesson.id,
-                                          question.id,
-                                          "type",
-                                          val
-                                        )
-                                      }
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="multiple_choice">
-                                          Multiple Choice
-                                        </SelectItem>
-                                        <SelectItem value="free_response">
-                                          Free Response
-                                        </SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  {question.type === "multiple_choice" ? (
-                                    <div className="space-y-3">
-                                      <Label>Answer Options</Label>
-                                      {question.options.map(
-                                        (option: string, oIndex: number) => (
-                                          <div
-                                            key={oIndex}
-                                            className="flex items-center gap-2"
-                                          >
-                                            <input
-                                              type="radio"
-                                              id={`option-${
-                                                lesson.id || index
-                                              }-${
-                                                question.id || qIndex
-                                              }-${oIndex}`}
-                                              name={`question-${
-                                                lesson.id || index
-                                              }-${question.id || qIndex}`}
-                                              checked={
-                                                question.correctOption ===
-                                                oIndex
-                                              }
-                                              onChange={() =>
-                                                updateQuizQuestion(
-                                                  lesson.id,
-                                                  question.id,
-                                                  "correctOption",
-                                                  oIndex
-                                                )
-                                              }
-                                              className="h-4 w-4 text-primary"
-                                            />
-                                            <Input
-                                              value={option}
-                                              onChange={(e) =>
-                                                updateQuizOption(
-                                                  lesson.id,
-                                                  question.id,
-                                                  oIndex,
-                                                  e.target.value
-                                                )
-                                              }
-                                              placeholder={`Option ${
-                                                oIndex + 1
-                                              }`}
-                                              className="flex-1"
-                                            />
-                                          </div>
-                                        )
-                                      )}
+                              {lesson.quizQuestions.map(
+                                (question: any, qIndex: number) => (
+                                  <div
+                                    key={question.id || qIndex}
+                                    className="space-y-4 border rounded-md p-4"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="font-medium">
+                                        Question {qIndex + 1}
+                                      </h4>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() =>
+                                          removeQuizQuestion(
+                                            lesson.id,
+                                            question.id
+                                          )
+                                        }
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        <span className="sr-only">
+                                          Remove question
+                                        </span>
+                                      </Button>
                                     </div>
-                                  ) : (
                                     <div className="space-y-2">
-                                      <Label>Correct Answer</Label>
+                                      <Label
+                                        htmlFor={`question-${
+                                          lesson.id || index
+                                        }-${question.id || qIndex}`}
+                                      >
+                                        Question
+                                      </Label>
                                       <Input
-                                        value={question.correctAnswerText || ""}
+                                        id={`question-${lesson.id || index}-${
+                                          question.id || qIndex
+                                        }`}
+                                        value={question.question}
                                         onChange={(e) =>
                                           updateQuizQuestion(
                                             lesson.id,
                                             question.id,
-                                            "correctAnswerText",
+                                            "question",
                                             e.target.value
                                           )
                                         }
-                                        placeholder="Enter the correct answer"
+                                        placeholder="Enter question"
                                       />
                                     </div>
-                                  )}
-                                </div>
-                              ))}
+                                    <div className="space-y-2">
+                                      <Label>Question Type</Label>
+                                      <Select
+                                        value={question.type}
+                                        onValueChange={(val) =>
+                                          updateQuizQuestion(
+                                            lesson.id,
+                                            question.id,
+                                            "type",
+                                            val
+                                          )
+                                        }
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="multiple_choice">
+                                            Multiple Choice
+                                          </SelectItem>
+                                          <SelectItem value="free_response">
+                                            Free Response
+                                          </SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    {question.type === "multiple_choice" ? (
+                                      <div className="space-y-3">
+                                        <Label>Answer Options</Label>
+                                        {question.options.map(
+                                          (option: string, oIndex: number) => (
+                                            <div
+                                              key={oIndex}
+                                              className="flex items-center gap-2"
+                                            >
+                                              <input
+                                                type="radio"
+                                                id={`option-${
+                                                  lesson.id || index
+                                                }-${
+                                                  question.id || qIndex
+                                                }-${oIndex}`}
+                                                name={`question-${
+                                                  lesson.id || index
+                                                }-${question.id || qIndex}`}
+                                                checked={
+                                                  question.correctOption ===
+                                                  oIndex
+                                                }
+                                                onChange={() =>
+                                                  updateQuizQuestion(
+                                                    lesson.id,
+                                                    question.id,
+                                                    "correctOption",
+                                                    oIndex
+                                                  )
+                                                }
+                                                className="h-4 w-4 text-primary"
+                                              />
+                                              <Input
+                                                value={option}
+                                                onChange={(e) =>
+                                                  updateQuizOption(
+                                                    lesson.id,
+                                                    question.id,
+                                                    oIndex,
+                                                    e.target.value
+                                                  )
+                                                }
+                                                placeholder={`Option ${
+                                                  oIndex + 1
+                                                }`}
+                                                className="flex-1"
+                                              />
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-2">
+                                        <Label>Correct Answer</Label>
+                                        <Input
+                                          value={
+                                            question.correctAnswerText || ""
+                                          }
+                                          onChange={(e) =>
+                                            updateQuizQuestion(
+                                              lesson.id,
+                                              question.id,
+                                              "correctAnswerText",
+                                              e.target.value
+                                            )
+                                          }
+                                          placeholder="Enter the correct answer"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              )}
                             </div>
                           ) : (
                             <div className="text-center py-4 text-muted-foreground">

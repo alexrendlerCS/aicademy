@@ -54,7 +54,7 @@ export function AppSidebar({ userType, userName }: AppSidebarProps) {
       href: "/teacher/modules/create",
     },
     {
-      title: "Student Progress",
+      title: "Student Progress (Beta)",
       icon: BarChart,
       href: "/teacher/progress",
     },
@@ -70,6 +70,11 @@ export function AppSidebar({ userType, userName }: AppSidebarProps) {
       title: "My Modules",
       icon: BookOpen,
       href: "/student/modules",
+    },
+    {
+      title: "Classes",
+      icon: GraduationCap,
+      href: "/student/classes",
     },
     {
       title: "Completed Modules",

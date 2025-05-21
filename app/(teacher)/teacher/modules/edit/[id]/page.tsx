@@ -427,7 +427,7 @@ export default function EditModulePage({
   // Render the same UI as the create page, but prefilled and with Save/Update button
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/teacher/modules">
@@ -437,10 +437,23 @@ export default function EditModulePage({
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Edit Module</h1>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handlePublish} disabled={publishing}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button
+            onClick={handlePublish}
+            disabled={publishing}
+            className="w-full sm:w-auto"
+          >
             <Save className="mr-2 h-4 w-4" />
             {publishing ? "Saving..." : "Save Changes"}
+          </Button>
+          <Button
+            variant="destructive"
+            size="icon"
+            onClick={() => handleDelete(moduleId)}
+            className="w-full sm:w-auto"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="sr-only">Delete module</span>
           </Button>
         </div>
       </div>

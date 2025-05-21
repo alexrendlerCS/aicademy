@@ -77,19 +77,21 @@ export default function TeacherModules() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My Modules</h1>
           <p className="text-muted-foreground">
             Manage and organize your educational modules
           </p>
         </div>
-        <Button asChild>
-          <Link href="/teacher/modules/create">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create Module
-          </Link>
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/teacher/modules/create">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create Module
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">

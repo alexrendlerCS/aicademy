@@ -152,13 +152,6 @@ export default function TeacherClasses() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Input
-            placeholder="Class name"
-            value={newClassName}
-            onChange={(e) => setNewClassName(e.target.value)}
-            disabled={creating}
-            className="w-full sm:w-auto"
-          />
           <Button
             onClick={handleCreateClass}
             disabled={creating}
@@ -274,7 +267,8 @@ export default function TeacherClasses() {
                   </div>
                   <div>
                     <h4 className="font-semibold flex items-center gap-2">
-                      <Plus className="h-4 w-4" /> Add Student by Email
+                      <Plus className="h-4 w-4" /> Add Student by Email ( Coming
+                      Soon )
                     </h4>
                     <div className="flex gap-2 mt-2">
                       <Input
