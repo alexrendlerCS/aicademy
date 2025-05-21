@@ -1,8 +1,15 @@
-"use client"
+"use client";
 
-import { usePathname } from "next/navigation"
-import Link from "next/link"
-import { BookOpen, BarChart, PlusCircle, Home, BookOpenCheck, GraduationCap } from "lucide-react"
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import {
+  BookOpen,
+  BarChart,
+  PlusCircle,
+  Home,
+  BookOpenCheck,
+  GraduationCap,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -12,18 +19,18 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
-} from "@/components/ui/sidebar"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ModeToggle } from "@/components/mode-toggle"
-import { cn } from "@/lib/utils"
+} from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ModeToggle } from "@/components/mode-toggle";
+import { cn } from "@/lib/utils";
 
 interface AppSidebarProps {
-  userType: "teacher" | "student"
-  userName: string
+  userType: "teacher" | "student";
+  userName: string;
 }
 
 export function AppSidebar({ userType, userName }: AppSidebarProps) {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   const teacherMenuItems = [
     {
@@ -37,6 +44,11 @@ export function AppSidebar({ userType, userName }: AppSidebarProps) {
       href: "/teacher/modules",
     },
     {
+      title: "Classes",
+      icon: GraduationCap,
+      href: "/teacher/classes",
+    },
+    {
       title: "Create Module",
       icon: PlusCircle,
       href: "/teacher/modules/create",
@@ -46,7 +58,7 @@ export function AppSidebar({ userType, userName }: AppSidebarProps) {
       icon: BarChart,
       href: "/teacher/progress",
     },
-  ]
+  ];
 
   const studentMenuItems = [
     {
@@ -64,9 +76,10 @@ export function AppSidebar({ userType, userName }: AppSidebarProps) {
       icon: BookOpenCheck,
       href: "/student/completed",
     },
-  ]
+  ];
 
-  const menuItems = userType === "teacher" ? teacherMenuItems : studentMenuItems
+  const menuItems =
+    userType === "teacher" ? teacherMenuItems : studentMenuItems;
 
   return (
     <Sidebar>
@@ -81,9 +94,18 @@ export function AppSidebar({ userType, userName }: AppSidebarProps) {
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.title}>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === item.href}
+                tooltip={item.title}
+              >
                 <Link href={item.href}>
-                  <item.icon className={cn("mr-2", pathname === item.href ? "text-primary" : "")} />
+                  <item.icon
+                    className={cn(
+                      "mr-2",
+                      pathname === item.href ? "text-primary" : ""
+                    )}
+                  />
                   <span>{item.title}</span>
                 </Link>
               </SidebarMenuButton>
@@ -101,7 +123,9 @@ export function AppSidebar({ userType, userName }: AppSidebarProps) {
             </Avatar>
             <div>
               <p className="text-sm font-medium">{userName}</p>
-              <p className="text-xs text-muted-foreground capitalize">{userType}</p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {userType}
+              </p>
             </div>
           </div>
           <div className="flex space-x-2">
@@ -110,5 +134,5 @@ export function AppSidebar({ userType, userName }: AppSidebarProps) {
         </div>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

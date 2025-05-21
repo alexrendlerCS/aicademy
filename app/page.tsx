@@ -1,30 +1,39 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { GraduationCap } from "lucide-react"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { GraduationCap } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="px-4 lg:px-6 h-14 flex items-center">
+    <div className="flex min-h-screen flex-col items-center w-full">
+      <header className="w-full px-4 lg:px-6 h-14 flex items-center justify-between max-w-7xl mx-auto">
         <Link href="/" className="flex items-center gap-2 font-bold">
           <GraduationCap className="h-6 w-6 text-primary" />
           <span>EduAI</span>
         </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Link href="#features" className="text-sm font-medium hover:underline underline-offset-4">
+        <nav className="flex gap-4 sm:gap-6">
+          <Link
+            href="#features"
+            className="text-sm font-medium hover:underline underline-offset-4"
+          >
             Features
           </Link>
-          <Link href="#about" className="text-sm font-medium hover:underline underline-offset-4">
+          <Link
+            href="#about"
+            className="text-sm font-medium hover:underline underline-offset-4"
+          >
             About
           </Link>
-          <Link href="#contact" className="text-sm font-medium hover:underline underline-offset-4">
+          <Link
+            href="#contact"
+            className="text-sm font-medium hover:underline underline-offset-4"
+          >
             Contact
           </Link>
         </nav>
       </header>
-      <main className="flex-1">
+      <main className="flex-1 w-full">
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto px-4 md:px-6 max-w-7xl">
             <div className="grid gap-6 lg:grid-cols-2 lg:gap-12 xl:grid-cols-2">
               <div className="flex flex-col justify-center space-y-4">
                 <div className="space-y-2">
@@ -32,18 +41,19 @@ export default function Home() {
                     AI-Assisted Learning for K-12 Classrooms
                   </h1>
                   <p className="max-w-[600px] text-muted-foreground md:text-xl">
-                    Empower teachers and engage students with our interactive learning platform. Create custom modules,
-                    track progress, and leverage AI assistance.
+                    Empower teachers and engage students with our interactive
+                    learning platform. Create custom modules, track progress,
+                    and leverage AI assistance.
                   </p>
                 </div>
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                    <Link href="/login">
+                    <Link href="/login?role=teacher">
                       <Button size="lg" className="w-full">
                         Teacher Login
                       </Button>
                     </Link>
-                    <Link href="/login">
+                    <Link href="/login?role=student">
                       <Button size="lg" variant="outline" className="w-full">
                         Student Login
                       </Button>
@@ -51,7 +61,10 @@ export default function Home() {
                   </div>
                   <div className="text-left text-sm text-muted-foreground">
                     Don't have an account?{" "}
-                    <Link href="/signup" className="text-primary hover:underline">
+                    <Link
+                      href="/signup"
+                      className="text-primary hover:underline"
+                    >
                       Sign up here!
                     </Link>
                   </div>
@@ -70,13 +83,19 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-muted">
-          <div className="container px-4 md:px-6">
+        <section
+          id="features"
+          className="w-full py-12 md:py-24 lg:py-32 bg-muted"
+        >
+          <div className="container mx-auto px-4 md:px-6 max-w-7xl">
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Platform Features</h2>
+                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
+                  Platform Features
+                </h2>
                 <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                  Our platform offers a comprehensive set of tools for both teachers and students.
+                  Our platform offers a comprehensive set of tools for both
+                  teachers and students.
                 </p>
               </div>
             </div>
@@ -87,7 +106,8 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold">Custom Modules</h3>
                 <p className="text-center text-muted-foreground">
-                  Create and customize learning modules with lessons, quizzes, and interactive content.
+                  Create and customize learning modules with lessons, quizzes,
+                  and interactive content.
                 </p>
               </div>
               <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
@@ -110,7 +130,8 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold">AI Assistance</h3>
                 <p className="text-center text-muted-foreground">
-                  Get help from our AI assistant to answer questions and provide additional explanations.
+                  Get help from our AI assistant to answer questions and provide
+                  additional explanations.
                 </p>
               </div>
               <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
@@ -132,7 +153,8 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold">Progress Tracking</h3>
                 <p className="text-center text-muted-foreground">
-                  Monitor student progress with detailed analytics and performance metrics.
+                  Monitor student progress with detailed analytics and
+                  performance metrics.
                 </p>
               </div>
               <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
@@ -154,7 +176,8 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold">Gamification</h3>
                 <p className="text-center text-muted-foreground">
-                  Engage students with XP, levels, and achievements to make learning fun and rewarding.
+                  Engage students with XP, levels, and achievements to make
+                  learning fun and rewarding.
                 </p>
               </div>
               <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
@@ -179,7 +202,8 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold">Customizable Content</h3>
                 <p className="text-center text-muted-foreground">
-                  Create rich content with text, images, videos, and interactive elements.
+                  Create rich content with text, images, videos, and interactive
+                  elements.
                 </p>
               </div>
               <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
@@ -204,24 +228,35 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold">Collaborative Learning</h3>
                 <p className="text-center text-muted-foreground">
-                  Enable students to work together on projects and share their progress.
+                  Enable students to work together on projects and share their
+                  progress.
                 </p>
               </div>
             </div>
           </div>
         </section>
       </main>
-      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-muted-foreground">© 2025 EduAI. All rights reserved.</p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-          <Link href="#" className="text-xs hover:underline underline-offset-4">
-            Terms of Service
-          </Link>
-          <Link href="#" className="text-xs hover:underline underline-offset-4">
-            Privacy
-          </Link>
-        </nav>
+      <footer className="w-full border-t">
+        <div className="max-w-7xl mx-auto flex flex-col gap-2 sm:flex-row py-6 items-center px-4 md:px-6">
+          <p className="text-xs text-muted-foreground">
+            © 2025 EduAI. All rights reserved.
+          </p>
+          <nav className="sm:ml-auto flex gap-4 sm:gap-6">
+            <Link
+              href="#"
+              className="text-xs hover:underline underline-offset-4"
+            >
+              Terms of Service
+            </Link>
+            <Link
+              href="#"
+              className="text-xs hover:underline underline-offset-4"
+            >
+              Privacy
+            </Link>
+          </nav>
+        </div>
       </footer>
     </div>
-  )
+  );
 }

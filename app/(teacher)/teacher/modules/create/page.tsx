@@ -1,36 +1,57 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { SubjectIcon } from "@/components/subject-icon"
-import { ArrowLeft, GripVertical, Plus, Save, Trash2, Upload } from "lucide-react"
-import { Separator } from "@/components/ui/separator"
+import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { SubjectIcon } from "@/components/subject-icon";
+import {
+  ArrowLeft,
+  GripVertical,
+  Plus,
+  Save,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { supabase } from "@/lib/supabaseClient";
 
 interface Lesson {
-  id: string
-  title: string
-  content: string
-  quizQuestions: QuizQuestion[]
+  id: string;
+  title: string;
+  content: string;
+  quizQuestions: QuizQuestion[];
 }
 
 interface QuizQuestion {
-  id: string
-  question: string
-  options: string[]
-  correctOption: number
+  id: string;
+  question: string;
+  type: "multiple_choice" | "free_response";
+  options: string[];
+  correctOption: number;
+  correctAnswerText?: string;
 }
 
 export default function CreateModule() {
-  const [moduleTitle, setModuleTitle] = useState("")
-  const [moduleSubject, setModuleSubject] = useState("")
-  const [moduleDescription, setModuleDescription] = useState("")
+  const [moduleTitle, setModuleTitle] = useState("");
+  const [moduleSubject, setModuleSubject] = useState("");
+  const [moduleDescription, setModuleDescription] = useState("");
   const [lessons, setLessons] = useState<Lesson[]>([
     {
       id: "1",
@@ -38,7 +59,11 @@ export default function CreateModule() {
       content: "",
       quizQuestions: [],
     },
-  ])
+  ]);
+  const [error, setError] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [status, setStatus] = useState("published");
 
   const addLesson = () => {
     setLessons([
@@ -49,18 +74,22 @@ export default function CreateModule() {
         content: "",
         quizQuestions: [],
       },
-    ])
-  }
+    ]);
+  };
 
   const removeLesson = (id: string) => {
     if (lessons.length > 1) {
-      setLessons(lessons.filter((lesson) => lesson.id !== id))
+      setLessons(lessons.filter((lesson) => lesson.id !== id));
     }
-  }
+  };
 
   const updateLesson = (id: string, field: keyof Lesson, value: any) => {
-    setLessons(lessons.map((lesson) => (lesson.id === id ? { ...lesson, [field]: value } : lesson)))
-  }
+    setLessons(
+      lessons.map((lesson) =>
+        lesson.id === id ? { ...lesson, [field]: value } : lesson
+      )
+    );
+  };
 
   const addQuizQuestion = (lessonId: string) => {
     setLessons(
@@ -73,32 +102,46 @@ export default function CreateModule() {
                 {
                   id: `${lesson.quizQuestions.length + 1}`,
                   question: "",
+                  type: "multiple_choice",
                   options: ["", "", "", ""],
                   correctOption: 0,
+                  correctAnswerText: "",
                 },
               ],
             }
-          : lesson,
-      ),
-    )
-  }
+          : lesson
+      )
+    );
+  };
 
-  const updateQuizQuestion = (lessonId: string, questionId: string, field: keyof QuizQuestion, value: any) => {
+  const updateQuizQuestion = (
+    lessonId: string,
+    questionId: string,
+    field: keyof QuizQuestion,
+    value: any
+  ) => {
     setLessons(
       lessons.map((lesson) =>
         lesson.id === lessonId
           ? {
               ...lesson,
               quizQuestions: lesson.quizQuestions.map((question) =>
-                question.id === questionId ? { ...question, [field]: value } : question,
+                question.id === questionId
+                  ? { ...question, [field]: value }
+                  : question
               ),
             }
-          : lesson,
-      ),
-    )
-  }
+          : lesson
+      )
+    );
+  };
 
-  const updateQuizOption = (lessonId: string, questionId: string, optionIndex: number, value: string) => {
+  const updateQuizOption = (
+    lessonId: string,
+    questionId: string,
+    optionIndex: number,
+    value: string
+  ) => {
     setLessons(
       lessons.map((lesson) =>
         lesson.id === lessonId
@@ -108,15 +151,17 @@ export default function CreateModule() {
                 question.id === questionId
                   ? {
                       ...question,
-                      options: question.options.map((option, index) => (index === optionIndex ? value : option)),
+                      options: question.options.map((option, index) =>
+                        index === optionIndex ? value : option
+                      ),
                     }
-                  : question,
+                  : question
               ),
             }
-          : lesson,
-      ),
-    )
-  }
+          : lesson
+      )
+    );
+  };
 
   const removeQuizQuestion = (lessonId: string, questionId: string) => {
     setLessons(
@@ -124,12 +169,139 @@ export default function CreateModule() {
         lesson.id === lessonId
           ? {
               ...lesson,
-              quizQuestions: lesson.quizQuestions.filter((question) => question.id !== questionId),
+              quizQuestions: lesson.quizQuestions.filter(
+                (question) => question.id !== questionId
+              ),
             }
-          : lesson,
-      ),
-    )
-  }
+          : lesson
+      )
+    );
+  };
+
+  const validate = () => {
+    if (
+      !moduleTitle.trim() ||
+      !moduleSubject.trim() ||
+      !moduleDescription.trim()
+    ) {
+      setError("Module title, subject, and description are required.");
+      return false;
+    }
+    for (const lesson of lessons) {
+      if (!lesson.title.trim() || !lesson.content.trim()) {
+        setError("Each lesson must have a title and content.");
+        return false;
+      }
+      for (const question of lesson.quizQuestions) {
+        if (!question.question.trim()) {
+          setError("Each quiz question must have a question text.");
+          return false;
+        }
+        if (question.type === "multiple_choice") {
+          if (!question.options.every((opt) => opt.trim())) {
+            setError(
+              "All answer options must be filled for each multiple choice question."
+            );
+            return false;
+          }
+          if (
+            typeof question.correctOption !== "number" ||
+            question.correctOption < 0 ||
+            question.correctOption >= question.options.length
+          ) {
+            setError(
+              "A correct answer must be selected for each multiple choice question."
+            );
+            return false;
+          }
+        } else if (question.type === "free_response") {
+          if (
+            !question.correctAnswerText ||
+            !question.correctAnswerText.trim()
+          ) {
+            setError(
+              "A correct answer must be provided for each free response question."
+            );
+            return false;
+          }
+        }
+      }
+    }
+    setError(null);
+    return true;
+  };
+
+  const handlePublish = async () => {
+    setSuccess(null);
+    if (!validate()) return;
+    setPublishing(true);
+    setError(null);
+    try {
+      // Get current user (teacher)
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("Could not get current user.");
+      // Insert module
+      const { data: moduleData, error: moduleError } = await supabase
+        .from("modules")
+        .insert({
+          title: moduleTitle,
+          subject: moduleSubject,
+          description: moduleDescription,
+          teacher_id: user.id,
+          status,
+          visibility: "all", // You can add visibility state if needed
+        })
+        .select()
+        .single();
+      if (moduleError || !moduleData)
+        throw new Error("Failed to create module.");
+      // Insert lessons
+      for (const [orderIndex, lesson] of lessons.entries()) {
+        const { data: lessonData, error: lessonError } = await supabase
+          .from("lessons")
+          .insert({
+            module_id: moduleData.id,
+            title: lesson.title,
+            content: lesson.content,
+            order_index: orderIndex,
+          })
+          .select()
+          .single();
+        if (lessonError || !lessonData)
+          throw new Error("Failed to create lesson.");
+        // Insert quiz questions for this lesson
+        for (const question of lesson.quizQuestions) {
+          const insertObj: any = {
+            lesson_id: lessonData.id,
+            question: question.question,
+            type: question.type,
+          };
+          if (question.type === "multiple_choice") {
+            insertObj.options = question.options;
+            insertObj.correct_index = question.correctOption;
+            insertObj.correct_answer_text = null;
+          } else if (question.type === "free_response") {
+            insertObj.options = null;
+            insertObj.correct_index = null;
+            insertObj.correct_answer_text = question.correctAnswerText;
+          }
+          const { error: questionError } = await supabase
+            .from("quiz_questions")
+            .insert(insertObj);
+          if (questionError) throw new Error("Failed to create quiz question.");
+        }
+      }
+      setSuccess("Module published successfully!");
+      // Optionally, redirect or reset form here
+    } catch (err: any) {
+      setError(err.message || "An error occurred while publishing.");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -145,12 +317,15 @@ export default function CreateModule() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline">Save Draft</Button>
-          <Button>
+          <Button onClick={handlePublish} disabled={publishing}>
             <Save className="mr-2 h-4 w-4" />
-            Publish
+            {publishing ? "Publishing..." : "Publish"}
           </Button>
         </div>
       </div>
+
+      {error && <div className="text-red-500 mt-2">{error}</div>}
+      {success && <div className="text-green-600 mt-2">{success}</div>}
 
       <div className="grid gap-6 md:grid-cols-6">
         <div className="md:col-span-4 space-y-6">
@@ -218,11 +393,15 @@ export default function CreateModule() {
                         <div className="flex items-center gap-2">
                           <GripVertical className="h-5 w-5 text-muted-foreground" />
                           <div className="space-y-2 flex-1">
-                            <Label htmlFor={`lesson-title-${lesson.id}`}>Lesson Title</Label>
+                            <Label htmlFor={`lesson-title-${lesson.id}`}>
+                              Lesson Title
+                            </Label>
                             <Input
                               id={`lesson-title-${lesson.id}`}
                               value={lesson.title}
-                              onChange={(e) => updateLesson(lesson.id, "title", e.target.value)}
+                              onChange={(e) =>
+                                updateLesson(lesson.id, "title", e.target.value)
+                              }
                               placeholder={`Lesson ${index + 1} Title`}
                             />
                           </div>
@@ -239,7 +418,9 @@ export default function CreateModule() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor={`lesson-content-${lesson.id}`}>Lesson Content</Label>
+                          <Label htmlFor={`lesson-content-${lesson.id}`}>
+                            Lesson Content
+                          </Label>
                           <div className="border rounded-md p-1">
                             <div className="flex items-center gap-1 mb-2 bg-muted/50 rounded p-1">
                               <Button variant="ghost" size="sm">
@@ -259,7 +440,13 @@ export default function CreateModule() {
                             <Textarea
                               id={`lesson-content-${lesson.id}`}
                               value={lesson.content}
-                              onChange={(e) => updateLesson(lesson.id, "content", e.target.value)}
+                              onChange={(e) =>
+                                updateLesson(
+                                  lesson.id,
+                                  "content",
+                                  e.target.value
+                                )
+                              }
                               placeholder="Enter lesson content here..."
                               rows={8}
                               className="border-none focus-visible:ring-0 resize-none"
@@ -270,7 +457,11 @@ export default function CreateModule() {
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <Label>Quiz Questions</Label>
-                            <Button variant="outline" size="sm" onClick={() => addQuizQuestion(lesson.id)}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addQuizQuestion(lesson.id)}
+                            >
                               <Plus className="h-3.5 w-3.5 mr-1" />
                               Add Question
                             </Button>
@@ -279,62 +470,150 @@ export default function CreateModule() {
                           {lesson.quizQuestions.length > 0 ? (
                             <div className="space-y-6">
                               {lesson.quizQuestions.map((question, qIndex) => (
-                                <div key={question.id} className="space-y-4 border rounded-md p-4">
+                                <div
+                                  key={question.id}
+                                  className="space-y-4 border rounded-md p-4"
+                                >
                                   <div className="flex items-center justify-between">
-                                    <h4 className="font-medium">Question {qIndex + 1}</h4>
+                                    <h4 className="font-medium">
+                                      Question {qIndex + 1}
+                                    </h4>
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => removeQuizQuestion(lesson.id, question.id)}
+                                      onClick={() =>
+                                        removeQuizQuestion(
+                                          lesson.id,
+                                          question.id
+                                        )
+                                      }
                                     >
                                       <Trash2 className="h-4 w-4" />
-                                      <span className="sr-only">Remove question</span>
+                                      <span className="sr-only">
+                                        Remove question
+                                      </span>
                                     </Button>
                                   </div>
 
                                   <div className="space-y-2">
-                                    <Label htmlFor={`question-${lesson.id}-${question.id}`}>Question</Label>
+                                    <Label
+                                      htmlFor={`question-${lesson.id}-${question.id}`}
+                                    >
+                                      Question
+                                    </Label>
                                     <Input
                                       id={`question-${lesson.id}-${question.id}`}
                                       value={question.question}
                                       onChange={(e) =>
-                                        updateQuizQuestion(lesson.id, question.id, "question", e.target.value)
+                                        updateQuizQuestion(
+                                          lesson.id,
+                                          question.id,
+                                          "question",
+                                          e.target.value
+                                        )
                                       }
                                       placeholder="Enter question"
                                     />
                                   </div>
 
-                                  <div className="space-y-3">
-                                    <Label>Answer Options</Label>
-                                    {question.options.map((option, oIndex) => (
-                                      <div key={oIndex} className="flex items-center gap-2">
-                                        <input
-                                          type="radio"
-                                          id={`option-${lesson.id}-${question.id}-${oIndex}`}
-                                          name={`question-${lesson.id}-${question.id}`}
-                                          checked={question.correctOption === oIndex}
-                                          onChange={() =>
-                                            updateQuizQuestion(lesson.id, question.id, "correctOption", oIndex)
-                                          }
-                                          className="h-4 w-4 text-primary"
-                                        />
-                                        <Input
-                                          value={option}
-                                          onChange={(e) =>
-                                            updateQuizOption(lesson.id, question.id, oIndex, e.target.value)
-                                          }
-                                          placeholder={`Option ${oIndex + 1}`}
-                                          className="flex-1"
-                                        />
-                                      </div>
-                                    ))}
+                                  <div className="space-y-2">
+                                    <Label>Question Type</Label>
+                                    <Select
+                                      value={question.type}
+                                      onValueChange={(val) =>
+                                        updateQuizQuestion(
+                                          lesson.id,
+                                          question.id,
+                                          "type",
+                                          val as any
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="multiple_choice">
+                                          Multiple Choice
+                                        </SelectItem>
+                                        <SelectItem value="free_response">
+                                          Free Response
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
                                   </div>
+
+                                  {question.type === "multiple_choice" ? (
+                                    <div className="space-y-3">
+                                      <Label>Answer Options</Label>
+                                      {question.options.map(
+                                        (option, oIndex) => (
+                                          <div
+                                            key={oIndex}
+                                            className="flex items-center gap-2"
+                                          >
+                                            <input
+                                              type="radio"
+                                              id={`option-${lesson.id}-${question.id}-${oIndex}`}
+                                              name={`question-${lesson.id}-${question.id}`}
+                                              checked={
+                                                question.correctOption ===
+                                                oIndex
+                                              }
+                                              onChange={() =>
+                                                updateQuizQuestion(
+                                                  lesson.id,
+                                                  question.id,
+                                                  "correctOption",
+                                                  oIndex
+                                                )
+                                              }
+                                              className="h-4 w-4 text-primary"
+                                            />
+                                            <Input
+                                              value={option}
+                                              onChange={(e) =>
+                                                updateQuizOption(
+                                                  lesson.id,
+                                                  question.id,
+                                                  oIndex,
+                                                  e.target.value
+                                                )
+                                              }
+                                              placeholder={`Option ${
+                                                oIndex + 1
+                                              }`}
+                                              className="flex-1"
+                                            />
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <Label>Correct Answer</Label>
+                                      <Input
+                                        value={question.correctAnswerText || ""}
+                                        onChange={(e) =>
+                                          updateQuizQuestion(
+                                            lesson.id,
+                                            question.id,
+                                            "correctAnswerText",
+                                            e.target.value
+                                          )
+                                        }
+                                        placeholder="Enter the correct answer"
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <div className="text-center py-4 text-muted-foreground">No quiz questions added yet</div>
+                            <div className="text-center py-4 text-muted-foreground">
+                              No quiz questions added yet
+                            </div>
                           )}
                         </div>
                       </div>
@@ -366,7 +645,10 @@ export default function CreateModule() {
 
                 {moduleSubject ? (
                   <div className="flex items-center gap-2">
-                    <SubjectIcon subject={moduleSubject as any} className="h-8 w-8" />
+                    <SubjectIcon
+                      subject={moduleSubject as any}
+                      className="h-8 w-8"
+                    />
                     <span className="capitalize">{moduleSubject}</span>
                   </div>
                 ) : (
@@ -378,7 +660,9 @@ export default function CreateModule() {
                 <div>
                   <h4 className="text-sm font-medium mb-2">Description</h4>
                   {moduleDescription ? (
-                    <p className="text-sm text-muted-foreground">{moduleDescription}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {moduleDescription}
+                    </p>
                   ) : (
                     <div className="space-y-2">
                       <div className="h-4 bg-muted rounded animate-pulse" />
@@ -398,7 +682,9 @@ export default function CreateModule() {
                         <div className="flex items-center justify-center h-5 w-5 rounded-full bg-muted text-xs">
                           {index + 1}
                         </div>
-                        <span className="text-sm">{lesson.title || `Lesson ${index + 1}`}</span>
+                        <span className="text-sm">
+                          {lesson.title || `Lesson ${index + 1}`}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -414,7 +700,7 @@ export default function CreateModule() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
-                <Select defaultValue="draft">
+                <Select value={status} onValueChange={setStatus}>
                   <SelectTrigger id="status">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -435,7 +721,9 @@ export default function CreateModule() {
                   <SelectContent>
                     <SelectItem value="all">All Students</SelectItem>
                     <SelectItem value="specific">Specific Classes</SelectItem>
-                    <SelectItem value="individual">Individual Students</SelectItem>
+                    <SelectItem value="individual">
+                      Individual Students
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -444,5 +732,5 @@ export default function CreateModule() {
         </div>
       </div>
     </div>
-  )
+  );
 }
