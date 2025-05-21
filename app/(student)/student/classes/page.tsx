@@ -244,7 +244,7 @@ export default function StudentClassesPage() {
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case "active":
+      case "approved":
         return "bg-green-500";
       case "pending":
         return "bg-yellow-500";
@@ -397,20 +397,14 @@ export default function StudentClassesPage() {
                 </div>
                 <div className="flex items-center gap-2 mb-2">
                   <Badge
-                    variant={
-                      cls.membership.status === "active" ? "default" : "outline"
-                    }
-                    className={
-                      cls.membership.status === "active"
-                        ? "bg-green-500 hover:bg-green-600"
-                        : "bg-yellow-400 text-yellow-900 border-yellow-300"
-                    }
+                    variant="default"
+                    className={getStatusColor(cls.membership.status)}
                   >
                     {cls.membership.status.charAt(0).toUpperCase() +
                       cls.membership.status.slice(1)}
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between mt-2 text-sm">
+                <div className="flex flex-col mt-2 text-sm gap-1">
                   <span className="font-medium">
                     Teacher: {cls.teacherName}
                   </span>
