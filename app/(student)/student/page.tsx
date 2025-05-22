@@ -68,14 +68,14 @@ export default function StudentDashboard() {
       const modulesWithProgress = await Promise.all(
         (modulesData || []).map(async (module: any) => {
           const { data: progress } = await supabase
-            .from("module_progress")
-            .select("completed, score")
+            .from("student_modules")
+            .select("completed_at, progress")
             .eq("module_id", module.id)
-            .eq("user_id", userId)
+            .eq("student_id", userId)
             .single();
           return {
             ...module,
-            progress: progress || { completed: false },
+            progress: progress || { completed_at: null, progress: 0 },
           };
         })
       );
@@ -111,14 +111,14 @@ export default function StudentDashboard() {
   }, []);
 
   // In progress modules
-  const inProgressModules = modules.filter((m) => !m.progress?.completed);
+  const inProgressModules = modules.filter((m) => !m.progress?.completed_at);
   // Recently completed modules (last 3)
   const recentlyCompletedModules = modules
-    .filter((m) => m.progress?.completed)
+    .filter((m) => m.progress?.completed_at)
     .slice(-3);
   // Stats
   const inProgressCount = inProgressModules.length;
-  const completedCount = modules.filter((m) => m.progress?.completed).length;
+  const completedCount = modules.filter((m) => m.progress?.completed_at).length;
   const achievementsCount = achievements.length;
 
   // Subject progress (mocked for now, can be calculated from lessons if needed)
@@ -208,9 +208,15 @@ export default function StudentDashboard() {
               subject={module.subject}
               description={module.description}
               lessonCount={module.lessonCount}
-              progress={module.progress?.score || 0}
+              progress={
+                typeof module.progress?.progress === "number"
+                  ? module.progress.progress
+                  : 0
+              }
               userType="student"
-              status={module.progress?.completed ? "completed" : "in-progress"}
+              status={
+                module.progress?.completed_at ? "completed" : "in-progress"
+              }
             />
           ))}
         </div>
@@ -232,7 +238,11 @@ export default function StudentDashboard() {
               subject={module.subject}
               description={module.description}
               lessonCount={module.lessonCount}
-              progress={module.progress?.score || 1}
+              progress={
+                typeof module.progress?.progress === "number"
+                  ? module.progress.progress
+                  : 1
+              }
               userType="student"
               status="completed"
             />
