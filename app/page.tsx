@@ -104,12 +104,10 @@ export default function Home() {
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <GraduationCap className="h-6 w-6" />
                 </div>
+
                 <h3 className="text-xl font-bold">Custom Modules</h3>
-                <div className="font-medium">Teacher: {cls.teacherName}</div>
-                <div className="text-sm text-muted-foreground">
-                  {cls.moduleCount}{" "}
-                  {cls.moduleCount === 1 ? "Module" : "Modules"}
-                </div>
+                <div className="font-medium">Teacher: Ms. Johnson</div>
+                <div className="text-sm text-muted-foreground">3 Modules</div>
               </div>
               <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
