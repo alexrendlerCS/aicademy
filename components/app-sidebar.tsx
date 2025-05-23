@@ -27,9 +27,16 @@ import { cn } from "@/lib/utils";
 interface AppSidebarProps {
   userType: "teacher" | "student";
   userName: string;
+  avatarUrl?: string;
+  onProfileClick?: () => void;
 }
 
-export function AppSidebar({ userType, userName }: AppSidebarProps) {
+export function AppSidebar({
+  userType,
+  userName,
+  avatarUrl,
+  onProfileClick,
+}: AppSidebarProps) {
   const pathname = usePathname();
 
   const teacherMenuItems = [
@@ -121,9 +128,17 @@ export function AppSidebar({ userType, userName }: AppSidebarProps) {
       <SidebarFooter className="mt-auto">
         <SidebarSeparator />
         <div className="flex items-center justify-between p-4">
-          <div className="flex items-center space-x-3">
+          <div
+            className="flex items-center space-x-3 cursor-pointer hover:bg-muted rounded-lg px-2 py-1 transition"
+            onClick={onProfileClick}
+            tabIndex={0}
+            role="button"
+            aria-label="Open profile settings"
+          >
             <Avatar>
-              <AvatarImage src={`/placeholder.svg?height=40&width=40`} />
+              <AvatarImage
+                src={avatarUrl || `/placeholder.svg?height=40&width=40`}
+              />
               <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
             </Avatar>
             <div>

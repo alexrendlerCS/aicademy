@@ -15,11 +15,13 @@ import { PlusCircle, Users, BookOpen, BarChart } from "lucide-react";
 
 export default function TeacherDashboard() {
   const [modules, setModules] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [avgCompletion, setAvgCompletion] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchModules = async () => {
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
       // Get current user
@@ -32,10 +34,39 @@ export default function TeacherDashboard() {
         setLoading(false);
         return;
       }
-      // Fetch modules for this teacher
-      const { data, error: modulesError } = await supabase
+      // Fetch classes for this teacher
+      const { data: classData } = await supabase
+        .from("classes")
+        .select("id")
+        .eq("teacher_id", user.id);
+      const classIds = (classData || []).map((c) => c.id);
+      // Fetch approved student_ids in these classes
+      let studentIds: string[] = [];
+      if (classIds.length > 0) {
+        const { data: memberData } = await supabase
+          .from("class_memberships")
+          .select("student_id")
+          .in("class_id", classIds)
+          .eq("status", "approved");
+        studentIds = (memberData || [])
+          .map((m) => m.student_id)
+          .filter(Boolean);
+        console.log("class_memberships studentIds:", studentIds);
+      }
+      // Fetch user info for these students
+      let allStudents: any[] = [];
+      if (studentIds.length > 0) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("id, full_name, email")
+          .in("id", studentIds);
+        allStudents = userData || [];
+      }
+      setStudents(allStudents);
+      // Fetch modules for this teacher (with lessons)
+      const { data: modulesData, error: modulesError } = await supabase
         .from("modules")
-        .select("*, lessons(count)")
+        .select("*, lessons(id)")
         .eq("teacher_id", user.id)
         .order("created_at", { ascending: false })
         .limit(6);
@@ -44,10 +75,34 @@ export default function TeacherDashboard() {
         setLoading(false);
         return;
       }
-      setModules(data || []);
+      // For each module, count lessons
+      const modulesWithLessonCount = (modulesData || []).map((mod) => ({
+        ...mod,
+        lessonCount: mod.lessons ? mod.lessons.length : 0,
+      }));
+      setModules(modulesWithLessonCount);
+      // Fetch student_modules for these modules (for completion)
+      const moduleIds = modulesWithLessonCount.map((m) => m.id);
+      let completions: number[] = [];
+      if (moduleIds.length > 0) {
+        const { data: studentModules } = await supabase
+          .from("student_modules")
+          .select("progress")
+          .in("module_id", moduleIds);
+        completions = (studentModules || [])
+          .map((sm) => (typeof sm.progress === "number" ? sm.progress : null))
+          .filter((v): v is number => v !== null);
+        console.log("student_modules progress:", completions);
+      }
+      // Calculate average completion
+      const avg =
+        completions.length > 0
+          ? completions.reduce((a, b) => a + b, 0) / completions.length
+          : null;
+      setAvgCompletion(avg);
       setLoading(false);
     };
-    fetchModules();
+    fetchData();
   }, []);
 
   return (
@@ -78,8 +133,10 @@ export default function TeacherDashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">-</div>
-            <p className="text-xs text-muted-foreground">(Coming soon)</p>
+            <div className="text-2xl font-bold">{students.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Students in your classes
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -91,7 +148,7 @@ export default function TeacherDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{modules.length}</div>
-            <p className="text-xs text-muted-foreground">(Live)</p>
+            <p className="text-xs text-muted-foreground">Modules you created</p>
           </CardContent>
         </Card>
         <Card>
@@ -102,8 +159,14 @@ export default function TeacherDashboard() {
             <BarChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">-</div>
-            <p className="text-xs text-muted-foreground">(Coming soon)</p>
+            <div className="text-2xl font-bold">
+              {avgCompletion !== null
+                ? `${Math.round(avgCompletion * 100)}%`
+                : "-"}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Average module completion
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -128,7 +191,7 @@ export default function TeacherDashboard() {
                 title={module.title}
                 subject={module.subject}
                 description={module.description}
-                lessonCount={module.lessons?.length || 0}
+                lessonCount={module.lessonCount}
                 userType="teacher"
               />
             ))}

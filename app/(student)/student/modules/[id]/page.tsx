@@ -191,10 +191,19 @@ export default function ModuleView({
     setChatInput("");
     setChatLoading(true);
     try {
+      // Get current user
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) throw new Error("Not authenticated");
+
       const res = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({
+          messages: newMessages,
+          userId: userData.user.id,
+          moduleId: moduleId,
+          lessonId: currentLesson?.id,
+        }),
       });
       const data = await res.json();
       if (data.aiMessage) {
