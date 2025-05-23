@@ -51,6 +51,7 @@ export default function ModuleView({
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [chatLoading, setChatLoading] = useState(false);
 
   // Draggable state for collapsed button (x only) and chat window (x, y)
   const SIDEBAR_WIDTH = 256;
@@ -182,18 +183,39 @@ export default function ModuleView({
     }
   }, [chatMessages, chatOpen]);
 
-  const handleSendChat = (e: React.FormEvent) => {
+  const handleSendChat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    setChatMessages((msgs) => [...msgs, { role: "user", content: chatInput }]);
+    const newMessages = [...chatMessages, { role: "user", content: chatInput }];
+    setChatMessages(newMessages);
     setChatInput("");
-    // Placeholder: In real use, send to AI backend and append response
-    setTimeout(() => {
+    setChatLoading(true);
+    try {
+      const res = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+      const data = await res.json();
+      if (data.aiMessage) {
+        setChatMessages((msgs) => [...msgs, data.aiMessage]);
+      } else {
+        setChatMessages((msgs) => [
+          ...msgs,
+          {
+            role: "ai",
+            content: "Sorry, I couldn't get a response from the AI.",
+          },
+        ]);
+      }
+    } catch (err) {
       setChatMessages((msgs) => [
         ...msgs,
-        { role: "ai", content: "(AI response placeholder)" },
+        { role: "ai", content: "Error contacting AI service." },
       ]);
-    }, 800);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   // Handle drag for collapsed button (bottom only, x axis)
@@ -936,24 +958,33 @@ export default function ModuleView({
                 How can I help you with this module?
               </div>
             ) : (
-              chatMessages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex ${
-                    msg.role === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
+              <>
+                {chatMessages.map((msg, i) => (
                   <div
-                    className={`rounded-lg px-3 py-2 max-w-xs text-sm ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-white/90 text-foreground border border-border"
+                    key={i}
+                    className={`flex ${
+                      msg.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    {msg.content}
+                    <div
+                      className={`rounded-lg px-3 py-2 max-w-xs text-sm ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-white/90 text-gray-900 border border-border"
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+                {chatLoading && (
+                  <div className="flex justify-start mt-2">
+                    <div className="rounded-lg px-3 py-2 max-w-xs text-sm bg-muted text-muted-foreground animate-pulse">
+                      AI is typing...
+                    </div>
+                  </div>
+                )}
+              </>
             )}
             <div ref={chatEndRef} />
           </div>
