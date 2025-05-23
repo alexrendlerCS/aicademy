@@ -68,18 +68,24 @@ export default function StudentModulesPage() {
         modulesData = modulesResult || [];
       }
 
-      // 4. Get progress for each module
+      // 4. Get progress for each module and lesson count
       const modulesWithProgress = await Promise.all(
         (modulesData || []).map(async (module: any) => {
           const { data: progress } = await supabase
-            .from("module_progress")
-            .select("completed, score")
+            .from("student_modules")
+            .select("completed_at, progress")
             .eq("module_id", module.id)
-            .eq("user_id", userId)
-            .maybeSingle();
+            .eq("student_id", userId)
+            .single();
+          // Fetch lesson count for this module
+          const { count: lessonCount } = await supabase
+            .from("lessons")
+            .select("id", { count: "exact", head: true })
+            .eq("module_id", module.id);
           return {
             ...module,
-            progress: progress || { completed: false },
+            progress: progress || { completed_at: null, progress: 0 },
+            lessonCount: lessonCount || 0,
           };
         })
       );
@@ -136,10 +142,10 @@ export default function StudentModulesPage() {
         ) : (
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {filteredModules.map((module) => {
-              const isCompleted = module.progress?.completed;
+              const isCompleted = module.progress?.completed_at;
               const progress =
-                module.progress?.score !== undefined
-                  ? module.progress.score
+                typeof module.progress?.progress === "number"
+                  ? module.progress.progress
                   : 0;
               return (
                 <div
@@ -182,14 +188,14 @@ export default function StudentModulesPage() {
                     {/* New badge logic can be added here if needed */}
                   </div>
                   <ProgressBar
-                    value={progress}
+                    value={progress * 100}
                     max={100}
                     color={module.subject || "primary"}
                   />
                   <div className="flex items-center justify-between mt-2 text-sm">
                     <span className="font-medium">
-                      {module.lesson_count || 1}{" "}
-                      {module.lesson_count === 1 ? "Lesson" : "Lessons"}
+                      {module.lessonCount || 1}{" "}
+                      {module.lessonCount === 1 ? "Lesson" : "Lessons"}
                     </span>
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <svg

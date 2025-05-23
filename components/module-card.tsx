@@ -1,21 +1,48 @@
-import Link from "next/link"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { SubjectIcon } from "@/components/subject-icon"
-import { ProgressBar } from "@/components/progress-bar"
-import { MoreHorizontal, Edit, Trash2, PlayCircle, CheckCircle, Clock } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { SubjectIcon } from "@/components/subject-icon";
+import { ProgressBar } from "@/components/progress-bar";
+import {
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  PlayCircle,
+  CheckCircle,
+  Clock,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
 interface ModuleCardProps {
-  id: string
-  title: string
-  subject: "math" | "reading" | "science" | "history" | "art" | "geography" | "music" | "coding" | "pe"
-  description: string
-  lessonCount: number
-  progress?: number
-  userType: "teacher" | "student"
-  status?: "not-started" | "in-progress" | "completed"
+  id: string;
+  title: string;
+  subject:
+    | "math"
+    | "reading"
+    | "science"
+    | "history"
+    | "art"
+    | "geography"
+    | "music"
+    | "coding"
+    | "pe";
+  description: string;
+  lessonCount: number;
+  progress?: number;
+  userType: "teacher" | "student";
+  status?: "not-started" | "in-progress" | "completed";
 }
 
 export function ModuleCard({
@@ -28,17 +55,19 @@ export function ModuleCard({
   userType,
   status = "not-started",
 }: ModuleCardProps) {
-  const isTeacher = userType === "teacher"
-  const isCompleted = status === "completed"
-  const isInProgress = status === "in-progress"
+  const isTeacher = userType === "teacher";
+  const isCompleted = status === "completed";
+  const isInProgress = status === "in-progress";
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <SubjectIcon subject={subject} />
-            <CardTitle className="text-lg">{title}</CardTitle>
+            <CardTitle className="text-lg truncate min-w-0" title={title}>
+              {title}
+            </CardTitle>
           </div>
 
           {isTeacher ? (
@@ -65,7 +94,10 @@ export function ModuleCard({
           ) : (
             <Badge
               variant={isCompleted ? "default" : "outline"}
-              className={isCompleted ? "bg-green-500 hover:bg-green-600" : ""}
+              className={
+                (isCompleted ? "bg-green-500 hover:bg-green-600" : "") +
+                " ml-2 flex-shrink-0"
+              }
             >
               {isCompleted ? (
                 <>
@@ -85,14 +117,27 @@ export function ModuleCard({
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{description}</p>
+        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+          {description}
+        </p>
         <div className="flex items-center justify-between text-sm mb-2">
           <span>
             {lessonCount} {lessonCount === 1 ? "Lesson" : "Lessons"}
           </span>
-          {!isTeacher && <span className="text-muted-foreground">{Math.round(progress * 100)}% Complete</span>}
+          {!isTeacher && (
+            <span className="text-muted-foreground">
+              {Math.round(progress * 100)}% Complete
+            </span>
+          )}
         </div>
-        {!isTeacher && <ProgressBar value={progress * 100} max={100} showLabel={false} color={subject} />}
+        {!isTeacher && (
+          <ProgressBar
+            value={progress * 100}
+            max={100}
+            showLabel={false}
+            color={subject}
+          />
+        )}
       </CardContent>
       <CardFooter className="pt-1">
         {isTeacher ? (
@@ -134,5 +179,5 @@ export function ModuleCard({
         )}
       </CardFooter>
     </Card>
-  )
+  );
 }

@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { Progress } from "@/components/ui/progress";
+import { ModuleCard } from "@/components/module-card";
 
 export default function CompletedModulesPage() {
   const [modules, setModules] = useState<any[]>([]);
@@ -65,22 +67,28 @@ export default function CompletedModulesPage() {
         modulesData = modulesResult || [];
       }
 
-      // 4. Get progress for each module
+      // 4. Get progress for each module and lesson count
       const modulesWithProgress = await Promise.all(
         (modulesData || []).map(async (module: any) => {
           const { data: progress } = await supabase
-            .from("module_progress")
-            .select("completed, score")
+            .from("student_modules")
+            .select("completed_at, progress")
             .eq("module_id", module.id)
-            .eq("user_id", userId)
-            .maybeSingle();
+            .eq("student_id", userId)
+            .single();
+          // Fetch lesson count for this module
+          const { count: lessonCount } = await supabase
+            .from("lessons")
+            .select("id", { count: "exact", head: true })
+            .eq("module_id", module.id);
           return {
             ...module,
-            progress: progress || { completed: false },
+            progress: progress || { completed_at: null, progress: 0 },
+            lessonCount: lessonCount || 0,
           };
         })
       );
-      setModules(modulesWithProgress.filter((m) => m.progress?.completed));
+      setModules(modulesWithProgress.filter((m) => m.progress?.completed_at));
     } catch (error) {
       console.error("Error fetching modules:", error);
     } finally {
@@ -125,26 +133,21 @@ export default function CompletedModulesPage() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredModules.map((module) => (
-              <Card
+              <ModuleCard
                 key={module.id}
-                className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => router.push(`/student/modules/${module.id}`)}
-              >
-                <CardHeader>
-                  <CardTitle>{module.title}</CardTitle>
-                  <CardDescription>{module.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-green-600">Completed</div>
-                    {module.progress?.score !== undefined && (
-                      <div className="text-sm font-medium">
-                        Score: {module.progress.score}%
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                id={module.id}
+                title={module.title}
+                subject={module.subject}
+                description={module.description}
+                lessonCount={module.lessonCount}
+                progress={
+                  typeof module.progress?.progress === "number"
+                    ? module.progress.progress
+                    : 1
+                }
+                userType="student"
+                status="completed"
+              />
             ))}
           </div>
         )}
