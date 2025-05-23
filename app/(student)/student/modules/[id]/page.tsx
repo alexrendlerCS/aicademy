@@ -53,9 +53,17 @@ export default function ModuleView({
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Draggable state for collapsed button (x only) and chat window (x, y)
-  const [collapsedX, setCollapsedX] = useState(0); // px from left
+  const SIDEBAR_WIDTH = 256;
+  const COLLAPSED_BTN_MARGIN = 248;
+  const [collapsedX, setCollapsedX] = useState(() => {
+    if (typeof window !== "undefined") {
+      return SIDEBAR_WIDTH + COLLAPSED_BTN_MARGIN;
+    }
+    return SIDEBAR_WIDTH + COLLAPSED_BTN_MARGIN;
+  });
   const [draggingCollapsed, setDraggingCollapsed] = useState(false);
   const collapsedBtnRef = useRef<HTMLButtonElement>(null);
+  const [collapsedDragOffset, setCollapsedDragOffset] = useState(0);
 
   const [chatPos, setChatPos] = useState<{ x: number; y: number }>({
     x: 0,
@@ -64,6 +72,20 @@ export default function ModuleView({
   const [draggingChat, setDraggingChat] = useState(false);
   const chatDragOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const chatWindowRef = useRef<HTMLDivElement>(null);
+
+  // Add state for chat window size
+  const MIN_CHAT_WIDTH = 320;
+  const MIN_CHAT_HEIGHT = 320;
+  const MAX_CHAT_WIDTH = 600;
+  const MAX_CHAT_HEIGHT = 700;
+  const [chatSize, setChatSize] = useState({ width: 400, height: 420 });
+  const [resizing, setResizing] = useState(false);
+  const resizeStart = useRef<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -154,7 +176,6 @@ export default function ModuleView({
     fetchData();
   }, [moduleId]);
 
-  // Scroll to bottom when chatMessages change
   useEffect(() => {
     if (chatOpen && chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -174,6 +195,124 @@ export default function ModuleView({
       ]);
     }, 800);
   };
+
+  // Handle drag for collapsed button (bottom only, x axis)
+  useEffect(() => {
+    if (!draggingCollapsed) return;
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      let clientX = 0;
+      if (e instanceof TouchEvent) {
+        clientX = e.touches[0].clientX;
+      } else {
+        clientX = e.clientX;
+      }
+      const btn = collapsedBtnRef.current;
+      if (btn) {
+        const btnWidth = btn.offsetWidth;
+        const minX = SIDEBAR_WIDTH + COLLAPSED_BTN_MARGIN;
+        const maxX = window.innerWidth - btnWidth - 8;
+        setCollapsedX(
+          Math.max(minX, Math.min(clientX - collapsedDragOffset, maxX))
+        );
+      }
+    };
+    const handleUp = () => setDraggingCollapsed(false);
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("touchmove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    window.addEventListener("touchend", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("touchend", handleUp);
+    };
+  }, [draggingCollapsed, collapsedDragOffset]);
+
+  // Handle drag for chat window (anywhere)
+  useEffect(() => {
+    if (!draggingChat) return;
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      let clientX = 0,
+        clientY = 0;
+      if (e instanceof TouchEvent) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      setChatPos({
+        x: clientX - chatDragOffset.current.x,
+        y: clientY - chatDragOffset.current.y,
+      });
+    };
+    const handleUp = () => setDraggingChat(false);
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("touchmove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    window.addEventListener("touchend", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("touchend", handleUp);
+    };
+  }, [draggingChat]);
+
+  // Only set default position on initial mount
+  useEffect(() => {
+    // Only set default position on first mount
+    setChatPos({
+      x: window.innerWidth / 2 - 320,
+      y: window.innerHeight - 440,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Resize logic for chat window
+  useEffect(() => {
+    if (!resizing) return;
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      let clientX = 0,
+        clientY = 0;
+      if (e instanceof TouchEvent) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      if (resizeStart.current) {
+        const newWidth = Math.max(
+          MIN_CHAT_WIDTH,
+          Math.min(
+            MAX_CHAT_WIDTH,
+            resizeStart.current.width + (clientX - resizeStart.current.x)
+          )
+        );
+        const newHeight = Math.max(
+          MIN_CHAT_HEIGHT,
+          Math.min(
+            MAX_CHAT_HEIGHT,
+            resizeStart.current.height + (clientY - resizeStart.current.y)
+          )
+        );
+        setChatSize({ width: newWidth, height: newHeight });
+      }
+    };
+    const handleUp = () => setResizing(false);
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("touchmove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    window.addEventListener("touchend", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("touchend", handleUp);
+    };
+  }, [resizing]);
 
   if (loading) {
     return <div className="p-8 text-center">Loading module...</div>;
@@ -354,79 +493,6 @@ export default function ModuleView({
       setSubmitModuleError(err.message || "Failed to submit module progress");
     }
   };
-
-  // Handle drag for collapsed button (bottom only, x axis)
-  useEffect(() => {
-    if (!draggingCollapsed) return;
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      let clientX = 0;
-      if (e instanceof TouchEvent) {
-        clientX = e.touches[0].clientX;
-      } else {
-        clientX = e.clientX;
-      }
-      // Clamp to window width
-      const btn = collapsedBtnRef.current;
-      if (btn) {
-        const btnWidth = btn.offsetWidth;
-        const minX = 8;
-        const maxX = window.innerWidth - btnWidth - 8;
-        setCollapsedX(Math.max(minX, Math.min(clientX - btnWidth / 2, maxX)));
-      }
-    };
-    const handleUp = () => setDraggingCollapsed(false);
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("touchmove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-    window.addEventListener("touchend", handleUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("touchmove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-      window.removeEventListener("touchend", handleUp);
-    };
-  }, [draggingCollapsed]);
-
-  // Handle drag for chat window (anywhere)
-  useEffect(() => {
-    if (!draggingChat) return;
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      let clientX = 0,
-        clientY = 0;
-      if (e instanceof TouchEvent) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      }
-      setChatPos({
-        x: clientX - chatDragOffset.current.x,
-        y: clientY - chatDragOffset.current.y,
-      });
-    };
-    const handleUp = () => setDraggingChat(false);
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("touchmove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-    window.addEventListener("touchend", handleUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("touchmove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-      window.removeEventListener("touchend", handleUp);
-    };
-  }, [draggingChat]);
-
-  // Reset chat position when opening
-  useEffect(() => {
-    if (chatOpen) {
-      setChatPos({
-        x: window.innerWidth / 2 - 320,
-        y: window.innerHeight - 440,
-      });
-    }
-  }, [chatOpen]);
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-background">
@@ -764,10 +830,20 @@ export default function ModuleView({
             }}
             onMouseDown={(e) => {
               setDraggingCollapsed(true);
+              const btn = collapsedBtnRef.current;
+              if (btn) {
+                const rect = btn.getBoundingClientRect();
+                setCollapsedDragOffset(e.clientX - rect.left);
+              }
               e.preventDefault();
             }}
             onTouchStart={(e) => {
               setDraggingCollapsed(true);
+              const btn = collapsedBtnRef.current;
+              if (btn && e.touches[0]) {
+                const rect = btn.getBoundingClientRect();
+                setCollapsedDragOffset(e.touches[0].clientX - rect.left);
+              }
               e.preventDefault();
             }}
             onClick={() => !draggingCollapsed && setChatOpen(true)}
@@ -783,23 +859,37 @@ export default function ModuleView({
           style={{
             left: chatPos.x,
             top: chatPos.y,
-            width: 400,
-            maxWidth: "95vw",
-            minWidth: 280,
-            height: 384,
-            maxHeight: "90vh",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
-            borderRadius: 16,
-            background: "var(--background)",
-            border: "1px solid var(--primary)",
+            width: chatSize.width,
+            height: chatSize.height,
+            maxWidth: MAX_CHAT_WIDTH,
+            minWidth: MIN_CHAT_WIDTH,
+            maxHeight: MAX_CHAT_HEIGHT,
+            minHeight: MIN_CHAT_HEIGHT,
+            background: "#23263a",
+            border: "2.5px solid var(--primary)",
+            borderRadius: 20,
+            boxShadow: "0 8px 32px 0 rgba(0,0,0,0.35)",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
             transition: draggingChat ? "none" : "box-shadow 0.2s",
             cursor: draggingChat ? "grabbing" : "default",
-            userSelect: draggingChat ? "none" : "auto",
+            userSelect: resizing ? "none" : "auto",
           }}
         >
           <div
-            className="flex items-center justify-between px-4 py-2 border-b bg-primary/10 rounded-t-xl cursor-move select-none"
-            style={{ borderTopLeftRadius: 16, borderTopRightRadius: 16 }}
+            className="flex items-center justify-between px-4 py-2 select-none"
+            style={{
+              background: "var(--primary)",
+              color: "#fff",
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              fontWeight: 600,
+              fontSize: 17,
+              letterSpacing: 0.5,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
+              cursor: "move",
+            }}
             onMouseDown={(e) => {
               setDraggingChat(true);
               const rect = chatWindowRef.current?.getBoundingClientRect();
@@ -823,19 +913,23 @@ export default function ModuleView({
               e.preventDefault();
             }}
           >
-            <div className="flex items-center gap-2 font-semibold text-primary">
-              <MessageCircle className="h-5 w-5" /> AI Assistant
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-white" /> AI Assistant
             </div>
             <button
               onClick={() => setChatOpen(false)}
-              className="hover:text-destructive"
+              className="hover:text-destructive text-white"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
           <div
-            className="flex-1 overflow-y-auto px-4 py-2 space-y-2 bg-background"
-            style={{ height: 260 }}
+            className="flex-1 overflow-y-auto px-4 py-3"
+            style={{
+              background: "#2d3148",
+              borderBottom: "1.5px solid var(--primary)",
+              minHeight: 120,
+            }}
           >
             {chatMessages.length === 0 ? (
               <div className="text-muted-foreground text-center mt-8">
@@ -853,7 +947,7 @@ export default function ModuleView({
                     className={`rounded-lg px-3 py-2 max-w-xs text-sm ${
                       msg.role === "user"
                         ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
+                        : "bg-white/90 text-foreground border border-border"
                     }`}
                   >
                     {msg.content}
@@ -865,11 +959,58 @@ export default function ModuleView({
           </div>
           <form
             onSubmit={handleSendChat}
-            className="flex items-center gap-2 px-4 py-3 border-t bg-background"
+            className="flex items-center gap-2 px-3 py-3"
+            style={{
+              background: "#23263a",
+              borderBottomLeftRadius: 20,
+              borderBottomRightRadius: 20,
+              borderTop: "1.5px solid var(--primary)",
+              position: "relative",
+              userSelect: resizing ? "none" : "auto",
+            }}
+            onMouseDown={(e) => {
+              if (
+                e.target === e.currentTarget ||
+                (e.target instanceof HTMLElement &&
+                  !["INPUT", "BUTTON"].includes(e.target.tagName))
+              ) {
+                setDraggingChat(true);
+                const rect = chatWindowRef.current?.getBoundingClientRect();
+                if (rect) {
+                  chatDragOffset.current = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
+                  };
+                }
+                e.preventDefault();
+              }
+            }}
+            onTouchStart={(e) => {
+              if (
+                e.target === e.currentTarget ||
+                (e.target instanceof HTMLElement &&
+                  !["INPUT", "BUTTON"].includes(e.target.tagName))
+              ) {
+                const rect = chatWindowRef.current?.getBoundingClientRect();
+                if (rect && e.touches[0]) {
+                  setDraggingChat(true);
+                  chatDragOffset.current = {
+                    x: e.touches[0].clientX - rect.left,
+                    y: e.touches[0].clientY - rect.top,
+                  };
+                }
+                e.preventDefault();
+              }
+            }}
           >
             <input
               type="text"
               className="flex-1 rounded border px-3 py-2 text-sm bg-background"
+              style={{
+                background: "#23263a",
+                border: "1.5px solid var(--primary)",
+                color: "#fff",
+              }}
               placeholder="Ask the AI assistant..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
@@ -879,6 +1020,83 @@ export default function ModuleView({
               Send
             </Button>
           </form>
+          {/* Resize handle (bottom-right corner) */}
+          <div
+            onMouseDown={(e) => {
+              setResizing(true);
+              resizeStart.current = {
+                x: e.clientX,
+                y: e.clientY,
+                width: chatSize.width,
+                height: chatSize.height,
+              };
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            onTouchStart={(e) => {
+              if (e.touches[0]) {
+                setResizing(true);
+                resizeStart.current = {
+                  x: e.touches[0].clientX,
+                  y: e.touches[0].clientY,
+                  width: chatSize.width,
+                  height: chatSize.height,
+                };
+              }
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            style={{
+              position: "absolute",
+              right: 0,
+              bottom: 0,
+              width: 28,
+              height: 28,
+              cursor: "nwse-resize",
+              zIndex: 10,
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "flex-end",
+              background: "none",
+              borderBottomRightRadius: 20,
+            }}
+            tabIndex={-1}
+          >
+            <div
+              style={{
+                width: 18,
+                height: 18,
+                background: "var(--primary)",
+                borderRadius: 6,
+                margin: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+              }}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2 10L10 2"
+                  stroke="#fff"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M7 10H10V7"
+                  stroke="#fff"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+          </div>
         </div>
       )}
     </div>
