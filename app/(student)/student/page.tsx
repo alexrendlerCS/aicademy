@@ -38,7 +38,7 @@ export default function StudentDashboard() {
       // 2. Get all module assignments for those classes or directly to the student
       let moduleAssignmentsQuery = supabase
         .from("module_assignments")
-        .select("module_id");
+        .select("module_id, due_date, class_id, student_id");
       if (approvedClassIds.length > 0) {
         moduleAssignmentsQuery = moduleAssignmentsQuery.or(
           `class_id.in.(${approvedClassIds.join(",")}),student_id.eq.${userId}`
@@ -50,6 +50,11 @@ export default function StudentDashboard() {
         );
       }
       const { data: moduleAssignments } = await moduleAssignmentsQuery;
+      const moduleIdToDueDate: Record<string, string> = {};
+      (moduleAssignments || []).forEach((ma) => {
+        if (ma.module_id && ma.due_date)
+          moduleIdToDueDate[ma.module_id] = ma.due_date;
+      });
       const moduleIds = (moduleAssignments || []).map((ma) => ma.module_id);
       console.log("moduleIds", moduleIds);
 
@@ -76,6 +81,7 @@ export default function StudentDashboard() {
           return {
             ...module,
             progress: progress || { completed_at: null, progress: 0 },
+            due_date: moduleIdToDueDate[module.id] || null,
           };
         })
       );
@@ -201,23 +207,25 @@ export default function StudentDashboard() {
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {inProgressModules.map((module) => (
-            <ModuleCard
-              key={module.id}
-              id={module.id}
-              title={module.title}
-              subject={module.subject}
-              description={module.description}
-              lessonCount={module.lessonCount}
-              progress={
-                typeof module.progress?.progress === "number"
-                  ? module.progress.progress
-                  : 0
-              }
-              userType="student"
-              status={
-                module.progress?.completed_at ? "completed" : "in-progress"
-              }
-            />
+            <div key={module.id}>
+              <ModuleCard
+                id={module.id}
+                title={module.title}
+                subject={module.subject}
+                description={module.description}
+                lessonCount={module.lessonCount}
+                progress={
+                  typeof module.progress?.progress === "number"
+                    ? module.progress.progress
+                    : 0
+                }
+                userType="student"
+                status={
+                  module.progress?.completed_at ? "completed" : "in-progress"
+                }
+                dueDate={module.due_date}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -231,21 +239,23 @@ export default function StudentDashboard() {
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {recentlyCompletedModules.map((module) => (
-            <ModuleCard
-              key={module.id}
-              id={module.id}
-              title={module.title}
-              subject={module.subject}
-              description={module.description}
-              lessonCount={module.lessonCount}
-              progress={
-                typeof module.progress?.progress === "number"
-                  ? module.progress.progress
-                  : 1
-              }
-              userType="student"
-              status="completed"
-            />
+            <div key={module.id}>
+              <ModuleCard
+                id={module.id}
+                title={module.title}
+                subject={module.subject}
+                description={module.description}
+                lessonCount={module.lessonCount}
+                progress={
+                  typeof module.progress?.progress === "number"
+                    ? module.progress.progress
+                    : 1
+                }
+                userType="student"
+                status="completed"
+                dueDate={module.due_date}
+              />
+            </div>
           ))}
         </div>
       </div>

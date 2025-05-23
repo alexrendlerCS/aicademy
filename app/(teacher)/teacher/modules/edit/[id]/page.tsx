@@ -42,7 +42,7 @@ export default function EditModulePage({
   const { id: moduleId } = use(params);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | { message: string } | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
 
@@ -60,6 +60,12 @@ export default function EditModulePage({
   );
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [classDueDates, setClassDueDates] = useState<Record<string, string>>(
+    {}
+  );
+  const [studentDueDates, setStudentDueDates] = useState<
+    Record<string, string>
+  >({});
 
   // Track deleted lessons/questions
   const [deletedLessonIds, setDeletedLessonIds] = useState<string[]>([]);
@@ -106,7 +112,7 @@ export default function EditModulePage({
       // Fetch assignments
       const { data: assignmentData } = await supabase
         .from("module_assignments")
-        .select("class_id, student_id")
+        .select("class_id, student_id, due_date")
         .eq("module_id", moduleId);
       setSelectedClassIds(
         (assignmentData || []).filter((a) => a.class_id).map((a) => a.class_id)
@@ -116,6 +122,17 @@ export default function EditModulePage({
           .filter((a) => a.student_id)
           .map((a) => a.student_id)
       );
+      // NEW: Set due dates
+      const classDue: Record<string, string> = {};
+      const studentDue: Record<string, string> = {};
+      (assignmentData || []).forEach((a) => {
+        if (a.class_id)
+          classDue[a.class_id] = a.due_date ? a.due_date.slice(0, 16) : "";
+        if (a.student_id)
+          studentDue[a.student_id] = a.due_date ? a.due_date.slice(0, 16) : "";
+      });
+      setClassDueDates(classDue);
+      setStudentDueDates(studentDue);
       // Fetch classes and students
       const { data: classData } = await supabase
         .from("classes")
@@ -410,12 +427,18 @@ export default function EditModulePage({
         await supabase.from("module_assignments").insert({
           module_id: moduleId,
           class_id: classId,
+          due_date: classDueDates[classId]
+            ? new Date(classDueDates[classId]).toISOString()
+            : null,
         });
       }
       for (const studentId of selectedStudentIds) {
         await supabase.from("module_assignments").insert({
           module_id: moduleId,
           student_id: studentId,
+          due_date: studentDueDates[studentId]
+            ? new Date(studentDueDates[studentId]).toISOString()
+            : null,
         });
       }
       setSuccess("Module updated successfully!");
@@ -423,6 +446,16 @@ export default function EditModulePage({
       setError(err.message || "An error occurred while saving.");
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this module?")) return;
+    const { error } = await supabase.from("modules").delete().eq("id", id);
+    if (!error) {
+      router.push("/teacher/modules");
+    } else {
+      alert("Failed to delete module.");
     }
   };
 
@@ -458,7 +491,15 @@ export default function EditModulePage({
           </Button>
         </div>
       </div>
-      {error && <div className="text-red-500 mt-2">{error}</div>}
+      {error && (
+        <div className="text-red-500 mt-2">
+          {typeof error === "string"
+            ? error
+            : error && typeof error === "object" && "message" in error
+            ? (error as any).message
+            : ""}
+        </div>
+      )}
       {success && <div className="text-green-600 mt-2">{success}</div>}
       {/* ... reuse the rest of the create page UI, prefilled with state ... */}
       <div className="grid gap-6 md:grid-cols-6">
@@ -502,6 +543,115 @@ export default function EditModulePage({
                   placeholder="Enter module description"
                   rows={4}
                 />
+              </div>
+              <Separator />
+              <div className="mb-2 text-sm text-muted-foreground">
+                Assign this module to classes or individual students and set a
+                due date for each assignment.
+              </div>
+              <div>
+                <Label>Assign to Classes</Label>
+                <div className="flex flex-col gap-3 mt-2">
+                  {classes.map((cls) => (
+                    <div
+                      key={cls.id}
+                      className="flex items-center gap-4 p-2 bg-muted/30 rounded"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedClassIds.includes(cls.id)}
+                        onChange={(e) => {
+                          setSelectedClassIds((ids) =>
+                            e.target.checked
+                              ? [...ids, cls.id]
+                              : ids.filter((id) => id !== cls.id)
+                          );
+                        }}
+                      />
+                      <span className="font-medium">{cls.name}</span>
+                      {selectedClassIds.includes(cls.id) && (
+                        <div className="flex items-center gap-2 ml-4">
+                          <Label htmlFor={`due-date-class-${cls.id}`}>
+                            Due Date
+                          </Label>
+                          <Input
+                            id={`due-date-class-${cls.id}`}
+                            type="datetime-local"
+                            className="w-56"
+                            value={classDueDates[cls.id] || ""}
+                            onChange={(e) =>
+                              setClassDueDates((prev) => ({
+                                ...prev,
+                                [cls.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Due date"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {classes.length === 0 && (
+                    <span className="text-muted-foreground">
+                      No classes found.
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <Label>Assign to Individual Students</Label>
+                <div className="flex flex-col gap-3 mt-2">
+                  {Object.entries(studentsByClass).map(([classId, students]) =>
+                    students.map((student) =>
+                      student ? (
+                        <div
+                          key={student.id}
+                          className="flex items-center gap-4 p-2 bg-muted/30 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedStudentIds.includes(student.id)}
+                            onChange={(e) => {
+                              setSelectedStudentIds((ids) =>
+                                e.target.checked
+                                  ? [...ids, student.id]
+                                  : ids.filter((id) => id !== student.id)
+                              );
+                            }}
+                          />
+                          <span className="font-medium">
+                            {student.full_name || student.email}
+                          </span>
+                          {selectedStudentIds.includes(student.id) && (
+                            <div className="flex items-center gap-2 ml-4">
+                              <Label htmlFor={`due-date-student-${student.id}`}>
+                                Due Date
+                              </Label>
+                              <Input
+                                id={`due-date-student-${student.id}`}
+                                type="datetime-local"
+                                className="w-56"
+                                value={studentDueDates[student.id] || ""}
+                                onChange={(e) =>
+                                  setStudentDueDates((prev) => ({
+                                    ...prev,
+                                    [student.id]: e.target.value,
+                                  }))
+                                }
+                                placeholder="Due date"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ) : null
+                    )
+                  )}
+                  {Object.values(studentsByClass).flat().length === 0 && (
+                    <span className="text-muted-foreground">
+                      No students found.
+                    </span>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -816,70 +966,6 @@ export default function EditModulePage({
                       </li>
                     ))}
                   </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Assign Module</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Assign to Classes</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {classes.map((cls) => (
-                    <label key={cls.id} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedClassIds.includes(cls.id)}
-                        onChange={(e) => {
-                          setSelectedClassIds((ids) =>
-                            e.target.checked
-                              ? [...ids, cls.id]
-                              : ids.filter((id) => id !== cls.id)
-                          );
-                        }}
-                      />
-                      {cls.name}
-                    </label>
-                  ))}
-                  {classes.length === 0 && (
-                    <span className="text-muted-foreground">
-                      No classes found.
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div>
-                <Label>Assign to Individual Students</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {Object.entries(studentsByClass).map(([classId, students]) =>
-                    students.map((student) => (
-                      <label
-                        key={student.id}
-                        className="flex items-center gap-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedStudentIds.includes(student.id)}
-                          onChange={(e) => {
-                            setSelectedStudentIds((ids) =>
-                              e.target.checked
-                                ? [...ids, student.id]
-                                : ids.filter((id) => id !== student.id)
-                            );
-                          }}
-                        />
-                        {student.full_name || student.email}
-                      </label>
-                    ))
-                  )}
-                  {Object.values(studentsByClass).flat().length === 0 && (
-                    <span className="text-muted-foreground">
-                      No students found.
-                    </span>
-                  )}
                 </div>
               </div>
             </CardContent>

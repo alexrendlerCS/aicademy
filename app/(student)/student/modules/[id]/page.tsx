@@ -507,18 +507,43 @@ export default function ModuleView({
           { onConflict: "student_id,lesson_id" }
         );
       }
+      // --- NEW: Fetch latest completed lessons from DB ---
+      const { data: lessonProgressData, error: lpError } = await supabase
+        .from("lesson_progress")
+        .select("lesson_id, completed")
+        .eq("student_id", userId)
+        .in(
+          "lesson_id",
+          lessons.map((l) => l.id)
+        );
+      if (lpError) throw lpError;
+      const dbCompletedLessons = (lessonProgressData || [])
+        .filter((lp) => lp.completed)
+        .map((lp) => lp.lesson_id);
+      const progress =
+        lessons.length > 0 ? dbCompletedLessons.length / lessons.length : 0;
+      const allLessonsCompleted =
+        lessons.length > 0 && dbCompletedLessons.length === lessons.length;
       // Upsert student_modules for module progress
-      await supabase.from("student_modules").upsert(
-        {
-          student_id: userId,
-          module_id: moduleId,
-          completed_at: allLessonsCompleted ? new Date().toISOString() : null,
-          progress: allLessonsCompleted
-            ? 1
-            : completedLessons.length / lessons.length,
-        },
-        { onConflict: "student_id,module_id" }
-      );
+      const { error: upsertError, data: upsertData } = await supabase
+        .from("student_modules")
+        .upsert(
+          {
+            student_id: userId,
+            module_id: moduleId,
+            completed_at: allLessonsCompleted ? new Date().toISOString() : null,
+            progress,
+          },
+          { onConflict: "student_id,module_id" }
+        );
+      if (upsertError) {
+        console.error("Error upserting student_modules:", upsertError);
+        setSubmitModuleError(
+          upsertError.message || "Failed to submit module progress"
+        );
+        return;
+      }
+      console.log("Upserted student_modules:", upsertData);
       setSubmitModuleSuccess(true);
     } catch (err: any) {
       setSubmitModuleError(err.message || "Failed to submit module progress");

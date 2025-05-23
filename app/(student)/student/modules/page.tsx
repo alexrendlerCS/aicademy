@@ -44,7 +44,7 @@ export default function StudentModulesPage() {
       // 2. Get all module assignments for those classes or directly to the student
       let moduleAssignmentsQuery = supabase
         .from("module_assignments")
-        .select("module_id");
+        .select("module_id, due_date, class_id, student_id");
       if (approvedClassIds.length > 0) {
         moduleAssignmentsQuery = moduleAssignmentsQuery.or(
           `class_id.in.(${approvedClassIds.join(",")}),student_id.eq.${userId}`
@@ -56,6 +56,11 @@ export default function StudentModulesPage() {
         );
       }
       const { data: moduleAssignments } = await moduleAssignmentsQuery;
+      const moduleIdToDueDate: Record<string, string> = {};
+      (moduleAssignments || []).forEach((ma) => {
+        if (ma.module_id && ma.due_date)
+          moduleIdToDueDate[ma.module_id] = ma.due_date;
+      });
       const moduleIds = (moduleAssignments || []).map((ma) => ma.module_id);
 
       // 3. Get the modules
@@ -86,6 +91,7 @@ export default function StudentModulesPage() {
             ...module,
             progress: progress || { completed_at: null, progress: 0 },
             lessonCount: lessonCount || 0,
+            due_date: moduleIdToDueDate[module.id] || (null as string | null),
           };
         })
       );
@@ -192,27 +198,29 @@ export default function StudentModulesPage() {
                     max={100}
                     color={module.subject || "primary"}
                   />
-                  <div className="flex items-center justify-between mt-2 text-sm">
-                    <span className="font-medium">
-                      {module.lessonCount || 1}{" "}
-                      {module.lessonCount === 1 ? "Lesson" : "Lessons"}
-                    </span>
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <svg
-                        width="16"
-                        height="16"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"
-                        />
-                      </svg>
-                      <span>
-                        Due: <span className="italic">Coming Soon</span>
-                      </span>
+                  <div className="flex items-center gap-2 bg-muted/40 rounded px-2 py-1 mt-2 w-fit text-xs text-muted-foreground">
+                    <svg
+                      width="16"
+                      height="16"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      className="mr-1"
+                    >
+                      <path
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"
+                      />
+                    </svg>
+                    <span>
+                      {module.due_date ? (
+                        new Date(module.due_date).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
+                      ) : (
+                        <span className="italic">No due date</span>
+                      )}
                     </span>
                   </div>
                 </div>

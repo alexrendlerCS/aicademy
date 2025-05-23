@@ -70,6 +70,12 @@ export default function CreateModule() {
   );
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [classDueDates, setClassDueDates] = useState<Record<string, string>>(
+    {}
+  );
+  const [studentDueDates, setStudentDueDates] = useState<
+    Record<string, string>
+  >({});
 
   useEffect(() => {
     const fetchClassesAndStudents = async () => {
@@ -334,6 +340,9 @@ export default function CreateModule() {
           module_id: moduleData.id,
           class_id: classId,
           assigned_by: user.id,
+          due_date: classDueDates[classId]
+            ? new Date(classDueDates[classId]).toISOString()
+            : null,
         });
       }
       for (const studentId of selectedStudentIds) {
@@ -341,8 +350,45 @@ export default function CreateModule() {
           module_id: moduleData.id,
           student_id: studentId,
           assigned_by: user.id,
+          due_date: studentDueDates[studentId]
+            ? new Date(studentDueDates[studentId]).toISOString()
+            : null,
         });
       }
+
+      // --- NEW: Insert into student_modules for all assigned students ---
+      // 1. Collect all assigned student IDs (from classes and individual)
+      let allAssignedStudentIds = new Set(selectedStudentIds);
+      // For each selected class, get approved students
+      for (const classId of selectedClassIds) {
+        const { data: memberData } = await supabase
+          .from("class_memberships")
+          .select("student_id")
+          .eq("class_id", classId)
+          .eq("status", "approved");
+        (memberData || []).forEach((m) => {
+          if (m.student_id) allAssignedStudentIds.add(m.student_id);
+        });
+      }
+      // 2. For each student, insert into student_modules if not already present
+      for (const studentId of allAssignedStudentIds) {
+        // Check if already exists
+        const { data: existing } = await supabase
+          .from("student_modules")
+          .select("id")
+          .eq("student_id", studentId)
+          .eq("module_id", moduleData.id)
+          .maybeSingle();
+        if (!existing) {
+          await supabase.from("student_modules").insert({
+            student_id: studentId,
+            module_id: moduleData.id,
+            progress: 0,
+          });
+        }
+      }
+      // --- END NEW ---
+
       setSuccess("Module published and assigned successfully!");
     } catch (err: any) {
       setError(err.message || "An error occurred while publishing.");
@@ -416,6 +462,115 @@ export default function CreateModule() {
                   placeholder="Enter module description"
                   rows={4}
                 />
+              </div>
+              <Separator />
+              <div className="mb-2 text-sm text-muted-foreground">
+                Assign this module to classes or individual students and set a
+                due date for each assignment.
+              </div>
+              <div>
+                <Label>Assign to Classes</Label>
+                <div className="flex flex-col gap-3 mt-2">
+                  {classes.map((cls) => (
+                    <div
+                      key={cls.id}
+                      className="flex items-center gap-4 p-2 bg-muted/30 rounded"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedClassIds.includes(cls.id)}
+                        onChange={(e) => {
+                          setSelectedClassIds((ids) =>
+                            e.target.checked
+                              ? [...ids, cls.id]
+                              : ids.filter((id) => id !== cls.id)
+                          );
+                        }}
+                      />
+                      <span className="font-medium">{cls.name}</span>
+                      {selectedClassIds.includes(cls.id) && (
+                        <div className="flex items-center gap-2 ml-4">
+                          <Label htmlFor={`due-date-class-${cls.id}`}>
+                            Due Date
+                          </Label>
+                          <Input
+                            id={`due-date-class-${cls.id}`}
+                            type="datetime-local"
+                            className="w-56"
+                            value={classDueDates[cls.id] || ""}
+                            onChange={(e) =>
+                              setClassDueDates((prev) => ({
+                                ...prev,
+                                [cls.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Due date"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {classes.length === 0 && (
+                    <span className="text-muted-foreground">
+                      No classes found.
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <Label>Assign to Individual Students (Coming soon)</Label>
+                <div className="flex flex-col gap-3 mt-2">
+                  {Object.entries(studentsByClass).map(([classId, students]) =>
+                    students.map((student) =>
+                      student ? (
+                        <div
+                          key={student.id}
+                          className="flex items-center gap-4 p-2 bg-muted/30 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedStudentIds.includes(student.id)}
+                            onChange={(e) => {
+                              setSelectedStudentIds((ids) =>
+                                e.target.checked
+                                  ? [...ids, student.id]
+                                  : ids.filter((id) => id !== student.id)
+                              );
+                            }}
+                          />
+                          <span className="font-medium">
+                            {student.full_name || student.email}
+                          </span>
+                          {selectedStudentIds.includes(student.id) && (
+                            <div className="flex items-center gap-2 ml-4">
+                              <Label htmlFor={`due-date-student-${student.id}`}>
+                                Due Date
+                              </Label>
+                              <Input
+                                id={`due-date-student-${student.id}`}
+                                type="datetime-local"
+                                className="w-56"
+                                value={studentDueDates[student.id] || ""}
+                                onChange={(e) =>
+                                  setStudentDueDates((prev) => ({
+                                    ...prev,
+                                    [student.id]: e.target.value,
+                                  }))
+                                }
+                                placeholder="Due date"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ) : null
+                    )
+                  )}
+                  {Object.values(studentsByClass).flat().length === 0 && (
+                    <span className="text-muted-foreground">
+                      No students found.
+                    </span>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -774,71 +929,6 @@ export default function CreateModule() {
                     </SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Assign Module</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Assign to Classes</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {classes.map((cls) => (
-                    <label key={cls.id} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedClassIds.includes(cls.id)}
-                        onChange={(e) => {
-                          setSelectedClassIds((ids) =>
-                            e.target.checked
-                              ? [...ids, cls.id]
-                              : ids.filter((id) => id !== cls.id)
-                          );
-                        }}
-                      />
-                      {cls.name}
-                    </label>
-                  ))}
-                  {classes.length === 0 && (
-                    <span className="text-muted-foreground">
-                      No classes found.
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div>
-                <Label>Assign to Individual Students</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {Object.entries(studentsByClass).map(([classId, students]) =>
-                    students.map((student) => (
-                      <label
-                        key={student.id}
-                        className="flex items-center gap-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedStudentIds.includes(student.id)}
-                          onChange={(e) => {
-                            setSelectedStudentIds((ids) =>
-                              e.target.checked
-                                ? [...ids, student.id]
-                                : ids.filter((id) => id !== student.id)
-                            );
-                          }}
-                        />
-                        {student.full_name || student.email}
-                      </label>
-                    ))
-                  )}
-                  {Object.values(studentsByClass).flat().length === 0 && (
-                    <span className="text-muted-foreground">
-                      No students found.
-                    </span>
-                  )}
-                </div>
               </div>
             </CardContent>
           </Card>
