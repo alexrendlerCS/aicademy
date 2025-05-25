@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -16,16 +16,56 @@ import { supabase } from "@/lib/supabaseClient";
 import { SubjectIcon } from "@/components/subject-icon";
 import { ProgressBar } from "@/components/progress-bar";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function StudentModulesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [modules, setModules] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const [filterType, setFilterType] = useState<
+    "all" | "class" | "subject" | "due-date"
+  >(
+    (searchParams.get("filterType") as
+      | "all"
+      | "class"
+      | "subject"
+      | "due-date") || "all"
+  );
+  const [selectedClass, setSelectedClass] = useState<string>(
+    searchParams.get("classId") || "all"
+  );
+  const [selectedSubject, setSelectedSubject] = useState<string>("all");
+  const [dueDateFilter, setDueDateFilter] = useState<
+    "all" | "overdue" | "upcoming" | "no-due-date"
+  >("all");
+  const [classes, setClasses] = useState<any[]>([]);
 
   useEffect(() => {
     fetchModules();
   }, []);
+
+  // Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filterType !== "all") {
+      params.set("filterType", filterType);
+      if (filterType === "class" && selectedClass !== "all") {
+        params.set("classId", selectedClass);
+      }
+    }
+    const newUrl = params.toString()
+      ? `?${params.toString()}`
+      : window.location.pathname;
+    window.history.replaceState({}, "", newUrl);
+  }, [filterType, selectedClass]);
 
   const fetchModules = async () => {
     try {
@@ -40,6 +80,13 @@ export default function StudentModulesPage() {
         .eq("student_id", userId)
         .eq("status", "approved");
       const approvedClassIds = (memberships || []).map((m) => m.class_id);
+
+      // Fetch classes for the filter
+      const { data: classesData } = await supabase
+        .from("classes")
+        .select("*")
+        .in("id", approvedClassIds);
+      setClasses(classesData || []);
 
       // 2. Get all module assignments for those classes or directly to the student
       let moduleAssignmentsQuery = supabase
@@ -57,9 +104,12 @@ export default function StudentModulesPage() {
       }
       const { data: moduleAssignments } = await moduleAssignmentsQuery;
       const moduleIdToDueDate: Record<string, string> = {};
+      const moduleIdToClassId: Record<string, string> = {};
       (moduleAssignments || []).forEach((ma) => {
-        if (ma.module_id && ma.due_date)
-          moduleIdToDueDate[ma.module_id] = ma.due_date;
+        if (ma.module_id) {
+          if (ma.due_date) moduleIdToDueDate[ma.module_id] = ma.due_date;
+          if (ma.class_id) moduleIdToClassId[ma.module_id] = ma.class_id;
+        }
       });
       const moduleIds = (moduleAssignments || []).map((ma) => ma.module_id);
 
@@ -91,7 +141,8 @@ export default function StudentModulesPage() {
             ...module,
             progress: progress || { completed_at: null, progress: 0 },
             lessonCount: lessonCount || 0,
-            due_date: moduleIdToDueDate[module.id] || (null as string | null),
+            due_date: moduleIdToDueDate[module.id] || null,
+            class_id: moduleIdToClassId[module.id] || null,
           };
         })
       );
@@ -103,11 +154,58 @@ export default function StudentModulesPage() {
     }
   };
 
-  const filteredModules = modules.filter(
-    (module) =>
-      module.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      module.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredModules = modules
+    .filter((module) => {
+      // Text search filter
+      const matchesSearch =
+        module.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        module.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Class filter
+      const matchesClass =
+        selectedClass === "all" || module.class_id === selectedClass;
+
+      // Subject filter
+      const matchesSubject =
+        selectedSubject === "all" || module.subject === selectedSubject;
+
+      // Due date filter
+      let matchesDueDate = true;
+      if (dueDateFilter !== "all") {
+        const now = new Date();
+        if (dueDateFilter === "overdue") {
+          matchesDueDate = module.due_date && new Date(module.due_date) < now;
+        } else if (dueDateFilter === "upcoming") {
+          matchesDueDate = module.due_date && new Date(module.due_date) >= now;
+        } else if (dueDateFilter === "no-due-date") {
+          matchesDueDate = !module.due_date;
+        }
+      }
+
+      return matchesSearch && matchesClass && matchesSubject && matchesDueDate;
+    })
+    .sort((a, b) => {
+      // First, separate completed and in-progress modules
+      const aCompleted = a.progress?.completed_at;
+      const bCompleted = b.progress?.completed_at;
+
+      // If one is completed and the other isn't, show in-progress first
+      if (aCompleted && !bCompleted) return 1;
+      if (!aCompleted && bCompleted) return -1;
+
+      // If both are completed, sort by completion date (most recent first)
+      if (aCompleted && bCompleted) {
+        return (
+          new Date(b.progress.completed_at).getTime() -
+          new Date(a.progress.completed_at).getTime()
+        );
+      }
+
+      // For in-progress modules, sort by due date
+      if (!a.due_date) return 1; // Push modules without due dates to the end
+      if (!b.due_date) return -1;
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    });
 
   return (
     <div className="container mx-auto py-8">
@@ -119,7 +217,7 @@ export default function StudentModulesPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -129,6 +227,89 @@ export default function StudentModulesPage() {
               className="pl-9"
             />
           </div>
+          <Select
+            value={filterType}
+            onValueChange={(
+              value: "all" | "class" | "subject" | "due-date"
+            ) => {
+              setFilterType(value);
+              // Reset all other filters when changing filter type
+              setSelectedClass("all");
+              setSelectedSubject("all");
+              setDueDateFilter("all");
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="class">By Class</SelectItem>
+              <SelectItem value="subject">By Subject</SelectItem>
+              <SelectItem value="due-date">By Due Date</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {filterType === "class" && (
+            <Select
+              value={selectedClass}
+              onValueChange={(value: string) => setSelectedClass(value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select class..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Classes</SelectItem>
+                {classes.map((cls) => (
+                  <SelectItem key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {filterType === "subject" && (
+            <Select
+              value={selectedSubject}
+              onValueChange={(value: string) => setSelectedSubject(value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select subject..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Subjects</SelectItem>
+                <SelectItem value="math">Math</SelectItem>
+                <SelectItem value="reading">Reading</SelectItem>
+                <SelectItem value="science">Science</SelectItem>
+                <SelectItem value="history">History</SelectItem>
+                <SelectItem value="art">Art</SelectItem>
+                <SelectItem value="geography">Geography</SelectItem>
+                <SelectItem value="music">Music</SelectItem>
+                <SelectItem value="coding">Coding</SelectItem>
+                <SelectItem value="writing">Writing</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
+          {filterType === "due-date" && (
+            <Select
+              value={dueDateFilter}
+              onValueChange={(
+                value: "all" | "overdue" | "upcoming" | "no-due-date"
+              ) => setDueDateFilter(value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select due date..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Due Dates</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+                <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="no-due-date">No Due Date</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {loading ? (
@@ -191,7 +372,6 @@ export default function StudentModulesPage() {
                     >
                       {isCompleted ? "Completed" : "In Progress"}
                     </Badge>
-                    {/* New badge logic can be added here if needed */}
                   </div>
                   <ProgressBar
                     value={progress * 100}

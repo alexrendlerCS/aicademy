@@ -1,11 +1,32 @@
-import { BookText, Calculator, Atom, Landmark, Palette, Globe, Music, Code, Dumbbell } from "lucide-react"
-import { cn } from "@/lib/utils"
+import {
+  BookText,
+  Calculator,
+  Atom,
+  Landmark,
+  Palette,
+  Globe,
+  Music,
+  Code,
+  Dumbbell,
+  PenTool,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-type SubjectType = "math" | "reading" | "science" | "history" | "art" | "geography" | "music" | "coding" | "pe"
+type SubjectType =
+  | "math"
+  | "reading"
+  | "science"
+  | "history"
+  | "art"
+  | "geography"
+  | "music"
+  | "coding"
+  | "pe"
+  | "writing";
 
 interface SubjectIconProps {
-  subject: SubjectType
-  className?: string
+  subject: SubjectType;
+  className?: string;
 }
 
 export function SubjectIcon({ subject, className }: SubjectIconProps) {
@@ -19,13 +40,14 @@ export function SubjectIcon({ subject, className }: SubjectIconProps) {
     music: Music,
     coding: Code,
     pe: Dumbbell,
-  }
+    writing: PenTool,
+  };
 
-  const Icon = iconMap[subject]
+  const Icon = iconMap[subject];
 
   return (
     <div className={cn(`subject-icon subject-${subject}`, className)}>
       <Icon className="h-5 w-5" />
     </div>
-  )
+  );
 }

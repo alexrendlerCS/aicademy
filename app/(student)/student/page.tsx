@@ -117,11 +117,26 @@ export default function StudentDashboard() {
   }, []);
 
   // In progress modules
-  const inProgressModules = modules.filter((m) => !m.progress?.completed_at);
+  const inProgressModules = modules
+    .filter((m) => !m.progress?.completed_at)
+    .sort((a, b) => {
+      // Handle cases where due_date might be null
+      if (!a.due_date) return 1; // Push modules without due dates to the end
+      if (!b.due_date) return -1;
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    });
+
   // Recently completed modules (last 3)
   const recentlyCompletedModules = modules
     .filter((m) => m.progress?.completed_at)
-    .slice(-3);
+    .sort((a, b) => {
+      // Sort by completion date instead of due date for completed modules
+      const aDate = new Date(a.progress.completed_at);
+      const bDate = new Date(b.progress.completed_at);
+      return bDate.getTime() - aDate.getTime(); // Most recently completed first
+    })
+    .slice(0, 3); // Get only the 3 most recently completed
+
   // Stats
   const inProgressCount = inProgressModules.length;
   const completedCount = modules.filter((m) => m.progress?.completed_at).length;

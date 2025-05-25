@@ -377,13 +377,21 @@ export default function StudentClassesPage() {
                 key={cls.id}
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col gap-3 cursor-pointer hover:scale-105 hover:shadow-2xl transition-all border-2 border-primary/10 focus-within:ring-2 focus-within:ring-primary"
                 tabIndex={0}
-                onClick={() => router.push(`/student/classes/${cls.id}`)}
+                onClick={() => {
+                  // Navigate to modules page with class filter pre-selected
+                  router.push(
+                    `/student/modules?filterType=class&classId=${cls.id}`
+                  );
+                }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter")
-                    router.push(`/student/classes/${cls.id}`);
+                  if (e.key === "Enter") {
+                    router.push(
+                      `/student/modules?filterType=class&classId=${cls.id}`
+                    );
+                  }
                 }}
                 role="button"
-                aria-label={`Open class ${cls.name}`}
+                aria-label={`View modules for class ${cls.name}`}
               >
                 <div className="flex items-center gap-4 mb-2">
                   <div className="flex-1">
