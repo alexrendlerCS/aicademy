@@ -31,13 +31,14 @@ export default function StudentModulesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<
-    "all" | "class" | "subject" | "due-date"
+    "all" | "class" | "subject" | "due-date" | "status"
   >(
     (searchParams.get("filterType") as
       | "all"
       | "class"
       | "subject"
-      | "due-date") || "all"
+      | "due-date"
+      | "status") || "all"
   );
   const [selectedClass, setSelectedClass] = useState<string>(
     searchParams.get("classId") || "all"
@@ -46,6 +47,15 @@ export default function StudentModulesPage() {
   const [dueDateFilter, setDueDateFilter] = useState<
     "all" | "overdue" | "upcoming" | "no-due-date"
   >("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "completed" | "in-progress" | "not-started"
+  >(
+    (searchParams.get("status") as
+      | "all"
+      | "completed"
+      | "in-progress"
+      | "not-started") || "all"
+  );
   const [classes, setClasses] = useState<any[]>([]);
 
   useEffect(() => {
@@ -59,13 +69,15 @@ export default function StudentModulesPage() {
       params.set("filterType", filterType);
       if (filterType === "class" && selectedClass !== "all") {
         params.set("classId", selectedClass);
+      } else if (filterType === "status" && statusFilter !== "all") {
+        params.set("status", statusFilter);
       }
     }
     const newUrl = params.toString()
       ? `?${params.toString()}`
       : window.location.pathname;
     window.history.replaceState({}, "", newUrl);
-  }, [filterType, selectedClass]);
+  }, [filterType, selectedClass, statusFilter]);
 
   const fetchModules = async () => {
     try {
@@ -182,7 +194,28 @@ export default function StudentModulesPage() {
         }
       }
 
-      return matchesSearch && matchesClass && matchesSubject && matchesDueDate;
+      // Status filter
+      let matchesStatus = true;
+      if (statusFilter !== "all") {
+        const isCompleted = module.progress?.completed_at;
+        const hasProgress = module.progress?.progress > 0;
+
+        if (statusFilter === "completed") {
+          matchesStatus = isCompleted;
+        } else if (statusFilter === "in-progress") {
+          matchesStatus = !isCompleted && hasProgress;
+        } else if (statusFilter === "not-started") {
+          matchesStatus = !isCompleted && !hasProgress;
+        }
+      }
+
+      return (
+        matchesSearch &&
+        matchesClass &&
+        matchesSubject &&
+        matchesDueDate &&
+        matchesStatus
+      );
     })
     .sort((a, b) => {
       // First, separate completed and in-progress modules
@@ -230,13 +263,14 @@ export default function StudentModulesPage() {
           <Select
             value={filterType}
             onValueChange={(
-              value: "all" | "class" | "subject" | "due-date"
+              value: "all" | "class" | "subject" | "due-date" | "status"
             ) => {
               setFilterType(value);
               // Reset all other filters when changing filter type
               setSelectedClass("all");
               setSelectedSubject("all");
               setDueDateFilter("all");
+              setStatusFilter("all");
             }}
           >
             <SelectTrigger className="w-[180px]">
@@ -247,6 +281,7 @@ export default function StudentModulesPage() {
               <SelectItem value="class">By Class</SelectItem>
               <SelectItem value="subject">By Subject</SelectItem>
               <SelectItem value="due-date">By Due Date</SelectItem>
+              <SelectItem value="status">By Status</SelectItem>
             </SelectContent>
           </Select>
 
@@ -310,6 +345,25 @@ export default function StudentModulesPage() {
               </SelectContent>
             </Select>
           )}
+
+          {filterType === "status" && (
+            <Select
+              value={statusFilter}
+              onValueChange={(
+                value: "all" | "completed" | "in-progress" | "not-started"
+              ) => setStatusFilter(value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select status..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="not-started">Not Started</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {loading ? (
@@ -330,10 +384,34 @@ export default function StudentModulesPage() {
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {filteredModules.map((module) => {
               const isCompleted = module.progress?.completed_at;
+              const hasProgress =
+                typeof module.progress?.progress === "number" &&
+                module.progress.progress > 0;
               const progress =
                 typeof module.progress?.progress === "number"
                   ? module.progress.progress
                   : 0;
+
+              let status: "completed" | "in-progress" | "not-started";
+              let badgeVariant: "default" | "outline";
+              let badgeClasses: string;
+
+              if (isCompleted) {
+                status = "completed";
+                badgeVariant = "default";
+                badgeClasses = "bg-green-500 hover:bg-green-600";
+              } else if (hasProgress) {
+                status = "in-progress";
+                badgeVariant = "outline";
+                badgeClasses =
+                  "bg-yellow-400 text-yellow-900 border-yellow-300";
+              } else {
+                status = "not-started";
+                badgeVariant = "outline";
+                badgeClasses =
+                  "bg-muted text-muted-foreground border-muted-foreground/20";
+              }
+
               return (
                 <div
                   key={module.id}
@@ -362,15 +440,10 @@ export default function StudentModulesPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Badge
-                      variant={isCompleted ? "default" : "outline"}
-                      className={
-                        isCompleted
-                          ? "bg-green-500 hover:bg-green-600"
-                          : "bg-yellow-400 text-yellow-900 border-yellow-300"
-                      }
-                    >
-                      {isCompleted ? "Completed" : "In Progress"}
+                    <Badge variant={badgeVariant} className={badgeClasses}>
+                      {status === "completed" && "Completed"}
+                      {status === "in-progress" && "In Progress"}
+                      {status === "not-started" && "Not Started"}
                     </Badge>
                   </div>
                   <ProgressBar
@@ -394,10 +467,13 @@ export default function StudentModulesPage() {
                     </svg>
                     <span>
                       {module.due_date ? (
-                        new Date(module.due_date).toLocaleString(undefined, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })
+                        <>
+                          Due{" "}
+                          {new Date(module.due_date).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </>
                       ) : (
                         <span className="italic">No due date</span>
                       )}

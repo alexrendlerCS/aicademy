@@ -43,6 +43,7 @@ interface ModuleCardProps {
   progress?: number;
   userType: "teacher" | "student";
   status?: "not-started" | "in-progress" | "completed";
+  dueDate?: string | null;
 }
 
 export function ModuleCard({
@@ -54,10 +55,43 @@ export function ModuleCard({
   progress = 0,
   userType,
   status = "not-started",
+  dueDate,
 }: ModuleCardProps) {
   const isTeacher = userType === "teacher";
   const isCompleted = status === "completed";
   const isInProgress = status === "in-progress";
+  const isNotStarted = status === "not-started";
+
+  const displayProgress = isCompleted
+    ? 100
+    : Math.min(100, Math.max(0, progress * 100));
+
+  const getStatusDisplay = () => {
+    if (isCompleted) {
+      return {
+        icon: <CheckCircle className="mr-1 h-3 w-3" />,
+        text: "Completed",
+        variant: "default" as const,
+        className: "bg-green-500 hover:bg-green-600",
+      };
+    } else if (isInProgress) {
+      return {
+        icon: <Clock className="mr-1 h-3 w-3" />,
+        text: "In Progress",
+        variant: "outline" as const,
+        className: "border-primary text-primary",
+      };
+    } else {
+      return {
+        icon: null,
+        text: "Not Started",
+        variant: "outline" as const,
+        className: "border-muted-foreground text-muted-foreground",
+      };
+    }
+  };
+
+  const statusDisplay = getStatusDisplay();
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
@@ -91,22 +125,11 @@ export function ModuleCard({
             </DropdownMenu>
           ) : (
             <Badge
-              variant={isCompleted ? "default" : "outline"}
-              className={isCompleted ? "bg-green-500 hover:bg-green-600" : ""}
+              variant={statusDisplay.variant}
+              className={statusDisplay.className}
             >
-              {isCompleted ? (
-                <>
-                  <CheckCircle className="mr-1 h-3 w-3" />
-                  Completed
-                </>
-              ) : isInProgress ? (
-                <>
-                  <Clock className="mr-1 h-3 w-3" />
-                  In Progress
-                </>
-              ) : (
-                "Not Started"
-              )}
+              {statusDisplay.icon}
+              {statusDisplay.text}
             </Badge>
           )}
         </div>
@@ -121,18 +144,41 @@ export function ModuleCard({
           </span>
           {!isTeacher && (
             <span className="text-muted-foreground">
-              {Math.round(Math.min(100, Math.max(0, progress * 100)))}% Complete
+              {Math.round(displayProgress)}% Complete
             </span>
           )}
         </div>
         {!isTeacher && (
           <>
             <ProgressBar
-              value={Math.min(100, Math.max(0, progress * 100))}
+              value={displayProgress}
               max={100}
               showLabel={false}
               color={subject}
             />
+            {dueDate && (
+              <div className="flex items-center gap-2 bg-muted/40 rounded px-2 py-1 mt-2 w-fit text-xs text-muted-foreground">
+                <svg
+                  width="16"
+                  height="16"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  className="mr-1"
+                >
+                  <path
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"
+                  />
+                </svg>
+                <span>
+                  {new Date(dueDate).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </span>
+              </div>
+            )}
           </>
         )}
       </CardContent>

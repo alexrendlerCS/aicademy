@@ -393,15 +393,24 @@ export default function ModuleView({
   const isFirstLesson = currentLessonIndex === 0;
   const isLastLesson = currentLessonIndex === lessons.length - 1;
   const isLessonCompleted = completedLessons.includes(currentLesson?.id);
+
+  // Calculate progress based on unique completed lessons
+  const uniqueCompletedLessons = Array.from(new Set(completedLessons));
   const progress =
     lessons.length > 0
-      ? Math.min(
-          1,
-          Math.max(0, new Set(completedLessons).size / lessons.length)
-        )
+      ? Math.min(1, Math.max(0, uniqueCompletedLessons.length / lessons.length))
       : 0;
+
+  // Check if all lessons are completed
   const allLessonsCompleted =
-    lessons.length > 0 && new Set(completedLessons).size === lessons.length;
+    lessons.length > 0 && uniqueCompletedLessons.length === lessons.length;
+
+  // Determine module status
+  const moduleStatus = allLessonsCompleted
+    ? "completed"
+    : progress > 0
+    ? "in-progress"
+    : "not-started";
 
   const handlePreviousLesson = () => {
     if (!isFirstLesson) {

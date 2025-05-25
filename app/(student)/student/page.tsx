@@ -8,6 +8,9 @@ import { XpBadge } from "@/components/xp-badge";
 import { ProgressBar } from "@/components/progress-bar";
 import { BookOpen, Award, Clock, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { SubjectIcon } from "@/components/subject-icon";
 
 export default function StudentDashboard() {
   const [modules, setModules] = useState<any[]>([]);
@@ -16,6 +19,7 @@ export default function StudentDashboard() {
   const [level, setLevel] = useState(1);
   const [achievements, setAchievements] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -116,30 +120,51 @@ export default function StudentDashboard() {
     fetchData();
   }, []);
 
-  // In progress modules
-  const inProgressModules = modules
-    .filter((m) => !m.progress?.completed_at)
+  // In progress modules (limit to 3)
+  const allInProgressModules = modules
+    .filter((m) => {
+      const hasProgress = m.progress?.progress > 0;
+      const isNotCompleted = !m.progress?.completed_at;
+      return hasProgress && isNotCompleted;
+    })
     .sort((a, b) => {
-      // Handle cases where due_date might be null
-      if (!a.due_date) return 1; // Push modules without due dates to the end
+      if (!a.due_date) return 1;
       if (!b.due_date) return -1;
       return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
     });
 
+  const inProgressModules = allInProgressModules.slice(0, 3);
+
   // Recently completed modules (last 3)
-  const recentlyCompletedModules = modules
+  const allCompletedModules = modules
     .filter((m) => m.progress?.completed_at)
     .sort((a, b) => {
-      // Sort by completion date instead of due date for completed modules
       const aDate = new Date(a.progress.completed_at);
       const bDate = new Date(b.progress.completed_at);
-      return bDate.getTime() - aDate.getTime(); // Most recently completed first
-    })
-    .slice(0, 3); // Get only the 3 most recently completed
+      return bDate.getTime() - aDate.getTime();
+    });
+
+  const recentlyCompletedModules = allCompletedModules.slice(0, 3);
+
+  // Not started modules (limit to 3)
+  const allNotStartedModules = modules
+    .filter(
+      (m) =>
+        !m.progress?.completed_at &&
+        (!m.progress?.progress || m.progress.progress === 0)
+    )
+    .sort((a, b) => {
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    });
+
+  const notStartedModules = allNotStartedModules.slice(0, 3);
 
   // Stats
-  const inProgressCount = inProgressModules.length;
-  const completedCount = modules.filter((m) => m.progress?.completed_at).length;
+  const completedCount = allCompletedModules.length;
+  const inProgressCount = allInProgressModules.length;
+  const notStartedCount = allNotStartedModules.length;
   const achievementsCount = achievements.length;
 
   // Subject progress (mocked for now, can be calculated from lessons if needed)
@@ -169,7 +194,9 @@ export default function StudentDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+            <CardTitle className="text-sm font-medium whitespace-nowrap">
+              In Progress
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -188,6 +215,18 @@ export default function StudentDashboard() {
             <div className="text-2xl font-bold">{completedCount}</div>
             <p className="text-xs text-muted-foreground">
               Modules completed so far
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Not Started</CardTitle>
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{notStartedCount}</div>
+            <p className="text-xs text-muted-foreground">
+              Modules not yet started
             </p>
           </CardContent>
         </Card>
@@ -215,63 +254,315 @@ export default function StudentDashboard() {
 
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Continue Learning</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold">Continue Learning</h2>
+            {allInProgressModules.length > 3 && (
+              <span className="text-sm text-muted-foreground">
+                (+{allInProgressModules.length - 3} more)
+              </span>
+            )}
+          </div>
           <Button variant="outline" asChild>
-            <Link href="/student/modules">View All</Link>
+            <Link href="/student/modules?filterType=status&status=in-progress">
+              View All
+            </Link>
           </Button>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {inProgressModules.map((module) => (
-            <div key={module.id}>
-              <ModuleCard
-                id={module.id}
-                title={module.title}
-                subject={module.subject}
-                description={module.description}
-                lessonCount={module.lessonCount}
-                progress={
-                  typeof module.progress?.progress === "number"
-                    ? module.progress.progress
-                    : 0
-                }
-                userType="student"
-                status={
-                  module.progress?.completed_at ? "completed" : "in-progress"
-                }
-                dueDate={module.due_date}
-              />
+          {inProgressModules.map((module) => {
+            const isCompleted = module.progress?.completed_at;
+            const hasProgress =
+              typeof module.progress?.progress === "number" &&
+              module.progress.progress > 0;
+            const progress =
+              typeof module.progress?.progress === "number"
+                ? module.progress.progress
+                : 0;
+
+            let status: "completed" | "in-progress" | "not-started";
+            let badgeVariant: "default" | "outline";
+            let badgeClasses: string;
+
+            if (isCompleted) {
+              status = "completed";
+              badgeVariant = "default";
+              badgeClasses = "bg-green-500 hover:bg-green-600";
+            } else if (hasProgress) {
+              status = "in-progress";
+              badgeVariant = "outline";
+              badgeClasses = "bg-yellow-400 text-yellow-900 border-yellow-300";
+            } else {
+              status = "not-started";
+              badgeVariant = "outline";
+              badgeClasses =
+                "bg-muted text-muted-foreground border-muted-foreground/20";
+            }
+
+            return (
+              <div key={module.id}>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col gap-3 hover:scale-105 hover:shadow-2xl transition-all border-2 border-primary/10 focus-within:ring-2 focus-within:ring-primary">
+                  <div className="flex items-center gap-4 mb-2">
+                    <SubjectIcon
+                      subject={module.subject || "math"}
+                      className="h-12 w-12"
+                    />
+                    <div className="flex-1">
+                      <div className="text-xl font-bold leading-tight">
+                        {module.title}
+                      </div>
+                      <div className="text-base text-muted-foreground line-clamp-2">
+                        {module.description}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant={badgeVariant} className={badgeClasses}>
+                      {status === "completed" && "Completed"}
+                      {status === "in-progress" && "In Progress"}
+                      {status === "not-started" && "Not Started"}
+                    </Badge>
+                  </div>
+                  <ProgressBar
+                    value={progress * 100}
+                    max={100}
+                    color={module.subject || "primary"}
+                  />
+                  <div className="flex items-center gap-2 bg-muted/40 rounded px-2 py-1 mt-2 w-fit text-xs text-muted-foreground">
+                    <svg
+                      width="16"
+                      height="16"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      className="mr-1"
+                    >
+                      <path
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"
+                      />
+                    </svg>
+                    <span>
+                      {module.due_date ? (
+                        <>
+                          Due{" "}
+                          {new Date(module.due_date).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </>
+                      ) : (
+                        <span className="italic">No due date</span>
+                      )}
+                    </span>
+                  </div>
+                  <Button
+                    className="mt-2"
+                    onClick={() => router.push(`/student/modules/${module.id}`)}
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {allInProgressModules.length === 0 && (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              No modules in progress. Start learning something new!
             </div>
-          ))}
+          )}
         </div>
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Recently Completed</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold">Not Started</h2>
+            {allNotStartedModules.length > 3 && (
+              <span className="text-sm text-muted-foreground">
+                (+{allNotStartedModules.length - 3} more)
+              </span>
+            )}
+          </div>
+          <Button variant="outline" asChild>
+            <Link href="/student/modules?filterType=status&status=not-started">
+              View All
+            </Link>
+          </Button>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {notStartedModules.map((module) => {
+            const status = "not-started";
+            const badgeVariant = "outline";
+            const badgeClasses =
+              "bg-muted text-muted-foreground border-muted-foreground/20";
+
+            return (
+              <div key={module.id}>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col gap-3 hover:scale-105 hover:shadow-2xl transition-all border-2 border-primary/10 focus-within:ring-2 focus-within:ring-primary">
+                  <div className="flex items-center gap-4 mb-2">
+                    <SubjectIcon
+                      subject={module.subject || "math"}
+                      className="h-12 w-12"
+                    />
+                    <div className="flex-1">
+                      <div className="text-xl font-bold leading-tight">
+                        {module.title}
+                      </div>
+                      <div className="text-base text-muted-foreground line-clamp-2">
+                        {module.description}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant={badgeVariant} className={badgeClasses}>
+                      Not Started
+                    </Badge>
+                  </div>
+                  <ProgressBar
+                    value={0}
+                    max={100}
+                    color={module.subject || "primary"}
+                  />
+                  <div className="flex items-center gap-2 bg-muted/40 rounded px-2 py-1 mt-2 w-fit text-xs text-muted-foreground">
+                    <svg
+                      width="16"
+                      height="16"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      className="mr-1"
+                    >
+                      <path
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"
+                      />
+                    </svg>
+                    <span>
+                      {module.due_date ? (
+                        <>
+                          Due{" "}
+                          {new Date(module.due_date).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </>
+                      ) : (
+                        <span className="italic">No due date</span>
+                      )}
+                    </span>
+                  </div>
+                  <Button
+                    className="mt-2"
+                    onClick={() => router.push(`/student/modules/${module.id}`)}
+                  >
+                    Start
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {allNotStartedModules.length === 0 && (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              You've started all your assigned modules!
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold">Recently Completed</h2>
+            {allCompletedModules.length > 3 && (
+              <span className="text-sm text-muted-foreground">
+                (+{allCompletedModules.length - 3} more)
+              </span>
+            )}
+          </div>
           <Button variant="outline" asChild>
             <Link href="/student/completed">View All</Link>
           </Button>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {recentlyCompletedModules.map((module) => (
-            <div key={module.id}>
-              <ModuleCard
-                id={module.id}
-                title={module.title}
-                subject={module.subject}
-                description={module.description}
-                lessonCount={module.lessonCount}
-                progress={
-                  typeof module.progress?.progress === "number"
-                    ? module.progress.progress
-                    : 1
-                }
-                userType="student"
-                status="completed"
-                dueDate={module.due_date}
-              />
+          {recentlyCompletedModules.map((module) => {
+            const status = "completed";
+            const badgeVariant = "default";
+            const badgeClasses = "bg-green-500 hover:bg-green-600";
+            const progress =
+              typeof module.progress?.progress === "number"
+                ? module.progress.progress
+                : 1;
+
+            return (
+              <div key={module.id}>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col gap-3 hover:scale-105 hover:shadow-2xl transition-all border-2 border-primary/10 focus-within:ring-2 focus-within:ring-primary">
+                  <div className="flex items-center gap-4 mb-2">
+                    <SubjectIcon
+                      subject={module.subject || "math"}
+                      className="h-12 w-12"
+                    />
+                    <div className="flex-1">
+                      <div className="text-xl font-bold leading-tight">
+                        {module.title}
+                      </div>
+                      <div className="text-base text-muted-foreground line-clamp-2">
+                        {module.description}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant={badgeVariant} className={badgeClasses}>
+                      Completed
+                    </Badge>
+                  </div>
+                  <ProgressBar
+                    value={progress * 100}
+                    max={100}
+                    color={module.subject || "primary"}
+                  />
+                  <div className="flex items-center gap-2 bg-muted/40 rounded px-2 py-1 mt-2 w-fit text-xs text-muted-foreground">
+                    <svg
+                      width="16"
+                      height="16"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      className="mr-1"
+                    >
+                      <path
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"
+                      />
+                    </svg>
+                    <span>
+                      {module.due_date ? (
+                        <>
+                          Due{" "}
+                          {new Date(module.due_date).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </>
+                      ) : (
+                        <span className="italic">No due date</span>
+                      )}
+                    </span>
+                  </div>
+                  <Button
+                    className="mt-2"
+                    onClick={() => router.push(`/student/modules/${module.id}`)}
+                  >
+                    Review
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {allCompletedModules.length === 0 && (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              No completed modules yet. Keep learning!
             </div>
-          ))}
+          )}
         </div>
       </div>
 
