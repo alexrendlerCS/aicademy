@@ -16,6 +16,7 @@ import {
   PlayCircle,
   CheckCircle,
   Clock,
+  Eye,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -85,6 +86,12 @@ export function ModuleCard({
                   <Link href={`/teacher/modules/edit/${id}`}>
                     <Edit className="mr-2 h-4 w-4" />
                     <span>Edit</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/teacher/modules/preview/${id}`}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    <span>Preview</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive focus:text-destructive">
@@ -180,7 +187,7 @@ export function ModuleCard({
             </Button>
             <Button asChild className="flex-1">
               <Link href={`/teacher/modules/preview/${id}`}>
-                <PlayCircle className="mr-2 h-4 w-4" />
+                <Eye className="mr-2 h-4 w-4" />
                 Preview
               </Link>
             </Button>

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/lib/supabaseClient";
+import { RichTextEditor } from "@/components/rich-text-editor";
 
 interface Lesson {
   id: string;
@@ -624,35 +625,15 @@ export default function CreateModule() {
                           <Label htmlFor={`lesson-content-${lesson.id}`}>
                             Lesson Content
                           </Label>
-                          <div className="border rounded-md p-1">
-                            <div className="flex items-center gap-1 mb-2 bg-muted/50 rounded p-1">
-                              <Button variant="ghost" size="sm">
-                                Bold
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                Italic
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                List
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <Upload className="h-4 w-4 mr-1" />
-                                Image
-                              </Button>
-                            </div>
-                            <Textarea
-                              id={`lesson-content-${lesson.id}`}
-                              value={lesson.content}
-                              onChange={(e) =>
-                                updateLesson(
-                                  lesson.id,
-                                  "content",
-                                  e.target.value
-                                )
+                          <div className="border rounded-md">
+                            <RichTextEditor
+                              content={lesson.content}
+                              onChange={(value) =>
+                                updateLesson(lesson.id, "content", value)
                               }
-                              placeholder="Enter lesson content here..."
-                              rows={8}
-                              className="border-none focus-visible:ring-0 resize-none"
+                              placeholder={`Enter content for Lesson ${
+                                index + 1
+                              }...`}
                             />
                           </div>
                         </div>

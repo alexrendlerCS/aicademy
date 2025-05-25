@@ -1,12 +1,11 @@
-import type { Config } from "tailwindcss";
-
-const config: Config = {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   darkMode: ["class"],
   content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "*.{js,ts,jsx,tsx,mdx}",
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
   ],
   theme: {
     container: {
@@ -51,13 +50,6 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        subject: {
-          math: "hsl(var(--math))",
-          reading: "hsl(var(--reading))",
-          science: "hsl(var(--science))",
-          history: "hsl(var(--history))",
-          art: "hsl(var(--art))",
-        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -66,12 +58,12 @@ const config: Config = {
       },
       keyframes: {
         "accordion-down": {
-          from: { height: "0" },
+          from: { height: 0 },
           to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
           from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
+          to: { height: 0 },
         },
       },
       animation: {
@@ -83,42 +75,66 @@ const config: Config = {
           css: {
             maxWidth: "none",
             color: "hsl(var(--foreground))",
-            hr: {
-              borderColor: "hsl(var(--border))",
-              marginTop: "2em",
-              marginBottom: "2em",
-            },
-            "h1, h2, h3, h4, h5, h6": {
-              color: "hsl(var(--foreground))",
-              marginTop: "1.5em",
-              marginBottom: "0.75em",
-            },
-            "ul, ol": {
-              paddingLeft: "1.25em",
-            },
-            li: {
-              marginTop: "0.25em",
-              marginBottom: "0.25em",
-            },
-            code: {
-              color: "hsl(var(--foreground))",
-              backgroundColor: "hsl(var(--muted))",
-              borderRadius: "0.25rem",
-              paddingLeft: "0.25rem",
-              paddingRight: "0.25rem",
-              fontWeight: "500",
-            },
-            pre: {
-              backgroundColor: "hsl(var(--muted))",
-              borderRadius: "0.5rem",
-              padding: "1rem",
+            a: {
+              color: "hsl(var(--primary))",
+              "&:hover": {
+                color: "hsl(var(--primary))",
+              },
             },
             strong: {
               color: "hsl(var(--foreground))",
             },
+            "ol > li::marker": {
+              color: "hsl(var(--foreground))",
+            },
+            "ul > li::marker": {
+              color: "hsl(var(--foreground))",
+            },
+            hr: {
+              borderColor: "hsl(var(--border))",
+            },
             blockquote: {
+              color: "hsl(var(--foreground))",
               borderLeftColor: "hsl(var(--border))",
+            },
+            h1: {
+              color: "hsl(var(--foreground))",
+            },
+            h2: {
+              color: "hsl(var(--foreground))",
+            },
+            h3: {
+              color: "hsl(var(--foreground))",
+            },
+            h4: {
+              color: "hsl(var(--foreground))",
+            },
+            "figure figcaption": {
               color: "hsl(var(--muted-foreground))",
+            },
+            code: {
+              color: "hsl(var(--foreground))",
+              backgroundColor: "hsl(var(--muted))",
+              borderRadius: "0.375rem",
+              paddingLeft: "0.25rem",
+              paddingRight: "0.25rem",
+            },
+            "code::before": {
+              content: '""',
+            },
+            "code::after": {
+              content: '""',
+            },
+            pre: {
+              backgroundColor: "hsl(var(--muted))",
+              color: "hsl(var(--foreground))",
+            },
+            thead: {
+              color: "hsl(var(--foreground))",
+              borderBottomColor: "hsl(var(--border))",
+            },
+            "tbody tr": {
+              borderBottomColor: "hsl(var(--border))",
             },
           },
         },
@@ -127,5 +143,3 @@ const config: Config = {
   },
   plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 };
-
-export default config;

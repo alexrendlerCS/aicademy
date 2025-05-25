@@ -552,7 +552,7 @@ export default function ModuleView({
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-background">
-      <div className="w-full max-w-4xl mx-auto space-y-6 pt-8">
+      <div className="w-full max-w-7xl mx-auto space-y-6 pt-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" asChild>
@@ -605,7 +605,7 @@ export default function ModuleView({
           </div>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-4">
+        <div className="grid gap-8 md:grid-cols-5">
           <Card className="md:col-span-1 h-fit bg-muted/60">
             <CardContent className="p-4">
               <div className="font-medium mb-2">Lessons</div>
@@ -651,7 +651,7 @@ export default function ModuleView({
             </CardContent>
           </Card>
 
-          <div className="md:col-span-3 space-y-6">
+          <div className="md:col-span-4 space-y-6">
             <Card className="bg-background/80 shadow-lg">
               <CardContent className="p-8">
                 <Tabs defaultValue="lesson">
@@ -663,7 +663,12 @@ export default function ModuleView({
                   <TabsContent value="lesson">
                     {currentLesson ? (
                       <div
-                        className="prose max-w-none dark:prose-invert text-lg"
+                        className="prose dark:prose-invert max-w-none 
+                          prose-headings:mb-2 prose-p:mb-2 prose-ul:my-2 prose-li:my-0 
+                          prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg 
+                          prose-p:text-base prose-li:text-base
+                          prose-pre:my-2 prose-code:text-sm
+                          prose-img:my-2"
                         dangerouslySetInnerHTML={{
                           __html: currentLesson.content,
                         }}

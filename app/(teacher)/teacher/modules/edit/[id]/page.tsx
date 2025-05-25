@@ -33,6 +33,7 @@ import {
   Upload,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { RichTextEditor } from "@/components/rich-text-editor";
 
 export default function EditModulePage({
   params,
@@ -343,7 +344,7 @@ export default function EditModulePage({
             .from("lessons")
             .update({
               title: lesson.title,
-              content: lesson.content,
+              content: lesson.content.replace(/\\"/g, '"').replace(/\\'/g, "'"),
               order_index: orderIndex,
             })
             .eq("id", lesson.id);
@@ -355,7 +356,7 @@ export default function EditModulePage({
             .insert({
               module_id: moduleId,
               title: lesson.title,
-              content: lesson.content,
+              content: lesson.content.replace(/\\"/g, '"').replace(/\\'/g, "'"),
               order_index: orderIndex,
             })
             .select()
@@ -710,20 +711,15 @@ export default function EditModulePage({
                           >
                             Lesson Content
                           </Label>
-                          <div className="border rounded-md p-1">
-                            <Textarea
-                              id={`lesson-content-${lesson.id || index}`}
-                              value={lesson.content}
-                              onChange={(e) =>
-                                updateLesson(
-                                  lesson.id,
-                                  "content",
-                                  e.target.value
-                                )
+                          <div className="border rounded-md">
+                            <RichTextEditor
+                              content={lesson.content}
+                              onChange={(value) =>
+                                updateLesson(lesson.id, "content", value)
                               }
-                              placeholder="Enter lesson content here..."
-                              rows={8}
-                              className="border-none focus-visible:ring-0 resize-none"
+                              placeholder={`Enter content for Lesson ${
+                                index + 1
+                              }...`}
                             />
                           </div>
                         </div>
