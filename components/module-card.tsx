@@ -94,7 +94,7 @@ export function ModuleCard({
   const statusDisplay = getStatusDisplay();
 
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-md">
+    <Card className="overflow-hidden transition-all hover:scale-105 hover:shadow-2xl border-2 border-primary/10 focus-within:ring-2 focus-within:ring-primary">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-3">

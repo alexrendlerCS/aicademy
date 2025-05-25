@@ -19,6 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/lib/supabaseClient";
 import { use as usePromise } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 
 export default function ModuleView({
   params,
@@ -1005,7 +1008,7 @@ export default function ModuleView({
             minWidth: MIN_CHAT_WIDTH,
             maxHeight: MAX_CHAT_HEIGHT,
             minHeight: MIN_CHAT_HEIGHT,
-            background: "#23263a",
+            background: "var(--background)",
             border: "2.5px solid var(--primary)",
             borderRadius: 20,
             boxShadow: "0 8px 32px 0 rgba(0,0,0,0.35)",
@@ -1018,10 +1021,8 @@ export default function ModuleView({
           }}
         >
           <div
-            className="flex items-center justify-between px-4 py-2 select-none"
+            className="flex items-center justify-between px-4 py-2 select-none bg-primary text-primary-foreground"
             style={{
-              background: "var(--primary)",
-              color: "#fff",
               borderTopLeftRadius: 20,
               borderTopRightRadius: 20,
               fontWeight: 600,
@@ -1045,6 +1046,7 @@ export default function ModuleView({
               setDraggingChat(true);
               const rect = chatWindowRef.current?.getBoundingClientRect();
               if (rect && e.touches[0]) {
+                setDraggingChat(true);
                 chatDragOffset.current = {
                   x: e.touches[0].clientX - rect.left,
                   y: e.touches[0].clientY - rect.top,
@@ -1054,19 +1056,18 @@ export default function ModuleView({
             }}
           >
             <div className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-white" /> AI Assistant
+              <MessageCircle className="h-5 w-5" /> AI Assistant
             </div>
             <button
               onClick={() => setChatOpen(false)}
-              className="hover:text-destructive text-white"
+              className="hover:text-destructive"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
           <div
-            className="flex-1 overflow-y-auto px-4 py-3"
+            className="flex-1 overflow-y-auto px-4 py-3 bg-background"
             style={{
-              background: "#2d3148",
               borderBottom: "1.5px solid var(--primary)",
               minHeight: 120,
             }}
@@ -1082,16 +1083,61 @@ export default function ModuleView({
                     key={i}
                     className={`flex ${
                       msg.role === "user" ? "justify-end" : "justify-start"
-                    }`}
+                    } mb-4`}
                   >
                     <div
-                      className={`rounded-lg px-3 py-2 max-w-xs text-sm ${
+                      className={`rounded-lg px-4 py-2 max-w-md text-sm ${
                         msg.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-white/90 text-gray-900 border border-border"
+                          ? "bg-blue-500 text-white shadow-sm"
+                          : "bg-card text-card-foreground border border-border"
                       }`}
                     >
-                      {msg.content}
+                      {msg.role === "user" ? (
+                        msg.content
+                      ) : (
+                        <div className="prose dark:prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:mb-2 prose-headings:mt-4 first:prose-headings:mt-0">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              h3: ({ children }) => (
+                                <h3 className="text-base font-semibold text-primary border-b pb-1 mb-2">
+                                  {children}
+                                </h3>
+                              ),
+                              blockquote: ({ children }) => (
+                                <blockquote className="bg-muted/50 rounded-lg px-4 py-2 my-2 border-l-4 border-primary">
+                                  {children}
+                                </blockquote>
+                              ),
+                              code: ({ children }) => (
+                                <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">
+                                  {children}
+                                </code>
+                              ),
+                              strong: ({ children }) => (
+                                <strong className="font-semibold text-primary">
+                                  {children}
+                                </strong>
+                              ),
+                              ul: ({ children }) => (
+                                <ul className="list-disc pl-4 my-1 space-y-1">
+                                  {children}
+                                </ul>
+                              ),
+                              ol: ({ children }) => (
+                                <ol className="list-decimal pl-4 my-1 space-y-1">
+                                  {children}
+                                </ol>
+                              ),
+                              li: ({ children }) => (
+                                <li className="my-0.5">{children}</li>
+                              ),
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1108,12 +1154,10 @@ export default function ModuleView({
           </div>
           <form
             onSubmit={handleSendChat}
-            className="flex items-center gap-2 px-3 py-3"
+            className="flex items-center gap-2 px-3 py-3 bg-background border-t border-border"
             style={{
-              background: "#23263a",
               borderBottomLeftRadius: 20,
               borderBottomRightRadius: 20,
-              borderTop: "1.5px solid var(--primary)",
               position: "relative",
               userSelect: resizing ? "none" : "auto",
             }}
@@ -1154,12 +1198,7 @@ export default function ModuleView({
           >
             <input
               type="text"
-              className="flex-1 rounded border px-3 py-2 text-sm bg-background"
-              style={{
-                background: "#23263a",
-                border: "1.5px solid var(--primary)",
-                color: "#fff",
-              }}
+              className="flex-1 rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
               placeholder="Ask the AI assistant..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
