@@ -1,12 +1,19 @@
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 interface ProgressBarProps {
-  value: number
-  max: number
-  className?: string
-  showLabel?: boolean
-  size?: "sm" | "md" | "lg"
-  color?: "primary" | "secondary" | "math" | "reading" | "science" | "history" | "art"
+  value: number;
+  max: number;
+  className?: string;
+  showLabel?: boolean;
+  size?: "sm" | "md" | "lg";
+  color?:
+    | "primary"
+    | "secondary"
+    | "math"
+    | "reading"
+    | "science"
+    | "history"
+    | "art";
 }
 
 export function ProgressBar({
@@ -17,23 +24,15 @@ export function ProgressBar({
   size = "md",
   color = "primary",
 }: ProgressBarProps) {
-  const percent = Math.min(Math.max(0, (value / max) * 100), 100)
+  // Ensure value is between 0 and max, then convert to percentage
+  const safeValue = Math.max(0, Math.min(value, max));
+  const percent = (safeValue / max) * 100;
 
   const sizeClasses = {
     sm: "h-1.5",
     md: "h-2",
     lg: "h-3",
-  }
-
-  const colorClasses = {
-    primary: "bg-primary",
-    secondary: "bg-secondary",
-    math: "bg-subject-math",
-    reading: "bg-subject-reading",
-    science: "bg-subject-science",
-    history: "bg-subject-history",
-    art: "bg-subject-art",
-  }
+  };
 
   return (
     <div className={cn("w-full", className)}>
@@ -45,10 +44,16 @@ export function ProgressBar({
       )}
       <div className="w-full bg-muted rounded-full overflow-hidden">
         <div
-          className={cn("rounded-full transition-all duration-300 ease-in-out", sizeClasses[size], colorClasses[color])}
-          style={{ width: `${percent}%` }}
+          className={cn(
+            "rounded-full transition-all duration-300 ease-in-out bg-emerald-500",
+            sizeClasses[size]
+          )}
+          style={{
+            width: `${Math.max(0, Math.min(percent, 100))}%`,
+            transition: "width 0.3s ease-in-out",
+          }}
         />
       </div>
     </div>
-  )
+  );
 }

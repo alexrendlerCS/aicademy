@@ -91,88 +91,121 @@ export default function ModuleView({
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      // Get current user
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) {
-        setLoading(false);
-        return;
-      }
-      const userId = userData.user.id;
-      // Fetch module
-      const { data: module, error: moduleError } = await supabase
-        .from("modules")
-        .select("*")
-        .eq("id", moduleId)
-        .single();
-      console.log("Fetched module:", module, "for moduleId:", moduleId);
-      if (moduleError || !module) {
-        setLoading(false);
-        return;
-      }
-      setModuleData(module);
-      // Fetch lessons for this module
-      const { data: lessonsData, error: lessonsError } = await supabase
-        .from("lessons")
-        .select("*")
-        .eq("module_id", moduleId)
-        .order("order_index", { ascending: true });
-      console.log("Fetched lessons:", lessonsData, "for moduleId:", moduleId);
-      if (lessonsError || !lessonsData) {
-        setLoading(false);
-        return;
-      }
-      setLessons(lessonsData);
-      console.log("Lessons state after set:", lessonsData);
-      // Fetch quiz questions for each lesson
-      const quizMap: { [lessonId: string]: any[] } = {};
-      let allQuestionIds: string[] = [];
-      for (const lesson of lessonsData) {
-        const { data: questions } = await supabase
-          .from("quiz_questions")
-          .select("*")
-          .eq("lesson_id", lesson.id);
-        quizMap[lesson.id] = questions || [];
-        if (questions) {
-          allQuestionIds = allQuestionIds.concat(
-            questions.map((q: any) => q.id)
-          );
+      try {
+        // Get current user
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData?.user) {
+          setLoading(false);
+          return;
         }
-      }
-      setQuizQuestions(quizMap);
-      // Fetch lesson progress for this user and module
-      const { data: lessonProgressData } = await supabase
-        .from("lesson_progress")
-        .select("lesson_id, completed")
-        .eq("student_id", userId);
-      const completed = (lessonProgressData || [])
-        .filter((lp: any) => lp.completed)
-        .map((lp: any) => lp.lesson_id);
-      setCompletedLessons(completed);
-      // Fetch quiz_attempts for all questions in this module for this user
-      if (allQuestionIds.length > 0) {
-        const { data: attemptsData } = await supabase
-          .from("quiz_attempts")
-          .select("question_id, selected_index, answer_text")
-          .eq("student_id", userId)
-          .in("question_id", allQuestionIds);
-        // Pre-populate selectedAnswers
-        const answers: { [questionId: string]: number | string | null } = {};
-        for (const attempt of attemptsData || []) {
-          if (
-            attempt.selected_index !== null &&
-            attempt.selected_index !== undefined
-          ) {
-            answers[attempt.question_id] = attempt.selected_index;
-          } else if (
-            attempt.answer_text !== null &&
-            attempt.answer_text !== undefined
-          ) {
-            answers[attempt.question_id] = attempt.answer_text;
+        const userId = userData.user.id;
+
+        // Fetch module
+        const { data: module, error: moduleError } = await supabase
+          .from("modules")
+          .select("*")
+          .eq("id", moduleId)
+          .single();
+
+        if (moduleError || !module) {
+          setLoading(false);
+          return;
+        }
+        setModuleData(module);
+
+        // Fetch lessons for this module
+        const { data: lessonsData, error: lessonsError } = await supabase
+          .from("lessons")
+          .select("*")
+          .eq("module_id", moduleId)
+          .order("order_index", { ascending: true });
+
+        if (lessonsError || !lessonsData) {
+          setLoading(false);
+          return;
+        }
+        setLessons(lessonsData);
+
+        // Fetch quiz questions for each lesson
+        const quizMap: { [lessonId: string]: any[] } = {};
+        let allQuestionIds: string[] = [];
+        for (const lesson of lessonsData) {
+          const { data: questions } = await supabase
+            .from("quiz_questions")
+            .select("*")
+            .eq("lesson_id", lesson.id);
+          quizMap[lesson.id] = questions || [];
+          if (questions) {
+            allQuestionIds = allQuestionIds.concat(
+              questions.map((q: any) => q.id)
+            );
           }
         }
-        setSelectedAnswers(answers);
+        setQuizQuestions(quizMap);
+
+        // Fetch lesson progress for this user and module
+        const { data: lessonProgressData } = await supabase
+          .from("lesson_progress")
+          .select("lesson_id, completed")
+          .eq("student_id", userId)
+          .eq("completed", true)
+          .in(
+            "lesson_id",
+            lessonsData.map((l) => l.id)
+          );
+
+        // Get unique completed lesson IDs
+        const uniqueCompletedLessons = Array.from(
+          new Set((lessonProgressData || []).map((lp: any) => lp.lesson_id))
+        );
+        setCompletedLessons(uniqueCompletedLessons);
+
+        // Calculate initial progress
+        const progress = Math.min(
+          1,
+          Math.max(0, uniqueCompletedLessons.length / lessonsData.length)
+        );
+
+        // Update module progress in database to ensure consistency
+        await supabase.from("student_modules").upsert(
+          {
+            student_id: userId,
+            module_id: moduleId,
+            progress: progress,
+            completed_at: progress === 1 ? new Date().toISOString() : null,
+          },
+          { onConflict: "student_id,module_id" }
+        );
+
+        // Fetch quiz attempts
+        if (allQuestionIds.length > 0) {
+          const { data: attemptsData } = await supabase
+            .from("quiz_attempts")
+            .select("question_id, selected_index, answer_text")
+            .eq("student_id", userId)
+            .in("question_id", allQuestionIds);
+
+          const answers: { [questionId: string]: number | string | null } = {};
+          for (const attempt of attemptsData || []) {
+            if (
+              attempt.selected_index !== null &&
+              attempt.selected_index !== undefined
+            ) {
+              answers[attempt.question_id] = attempt.selected_index;
+            } else if (
+              attempt.answer_text !== null &&
+              attempt.answer_text !== undefined
+            ) {
+              answers[attempt.question_id] = attempt.answer_text;
+            }
+          }
+          setSelectedAnswers(answers);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchData();
   }, [moduleId]);
@@ -361,9 +394,14 @@ export default function ModuleView({
   const isLastLesson = currentLessonIndex === lessons.length - 1;
   const isLessonCompleted = completedLessons.includes(currentLesson?.id);
   const progress =
-    lessons.length > 0 ? completedLessons.length / lessons.length : 0;
+    lessons.length > 0
+      ? Math.min(
+          1,
+          Math.max(0, new Set(completedLessons).size / lessons.length)
+        )
+      : 0;
   const allLessonsCompleted =
-    lessons.length > 0 && completedLessons.length === lessons.length;
+    lessons.length > 0 && new Set(completedLessons).size === lessons.length;
 
   const handlePreviousLesson = () => {
     if (!isFirstLesson) {
@@ -438,6 +476,7 @@ export default function ModuleView({
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) throw new Error("Not authenticated");
       const userId = userData.user.id;
+
       // Save each attempt
       for (const question of quizQuestions[currentLesson.id]) {
         const answer = selectedAnswers[question.id];
@@ -447,25 +486,14 @@ export default function ModuleView({
         let answerText = null;
         if (question.type === "multiple_choice") {
           selectedIndex = answer as number;
-          isCorrect = question.correct_index === selectedIndex;
-          answerText =
-            question.options[selectedIndex]?.option ??
-            question.options[selectedIndex];
-        } else if (question.type === "free_response") {
+          isCorrect = selectedIndex === question.correct_index;
+        } else {
           answerText = answer as string;
-          const userAnswer =
-            typeof answerText === "string"
-              ? answerText.trim().toLowerCase()
-              : "";
-          const correctRaw = question.correct_answer_text;
-          let correctAnswer = "";
-          if (typeof correctRaw === "string") {
-            correctAnswer = correctRaw.trim().toLowerCase();
-          } else if (typeof correctRaw === "number") {
-            correctAnswer = String(correctRaw);
-          }
-          isCorrect = userAnswer === correctAnswer;
+          isCorrect =
+            answerText.toLowerCase().trim() ===
+            question.correct_answer.toLowerCase().trim();
         }
+
         await supabase.from("quiz_attempts").insert({
           student_id: userId,
           question_id: question.id,
@@ -475,8 +503,45 @@ export default function ModuleView({
           attempted_at: new Date().toISOString(),
         });
       }
-      // Mark lesson as completed
-      setCompletedLessons((prev) => [...prev, currentLesson.id]);
+
+      // Mark lesson as completed if not already completed
+      if (!completedLessons.includes(currentLesson.id)) {
+        // Update local state
+        const newCompletedLessons = Array.from(
+          new Set([...completedLessons, currentLesson.id])
+        );
+        setCompletedLessons(newCompletedLessons);
+
+        // Calculate new progress based on unique completed lessons
+        const progress = Math.min(
+          1,
+          Math.max(0, newCompletedLessons.length / lessons.length)
+        );
+        const isFullyComplete = progress === 1;
+
+        // Update lesson progress
+        await supabase.from("lesson_progress").upsert(
+          {
+            student_id: userId,
+            lesson_id: currentLesson.id,
+            completed: true,
+            completed_at: new Date().toISOString(),
+          },
+          { onConflict: "student_id,lesson_id" }
+        );
+
+        // Update module progress
+        await supabase.from("student_modules").upsert(
+          {
+            student_id: userId,
+            module_id: moduleId,
+            progress: progress,
+            completed_at: isFullyComplete ? new Date().toISOString() : null,
+          },
+          { onConflict: "student_id,module_id" }
+        );
+      }
+
       setSubmitSuccess(true);
     } catch (err: any) {
       setSubmitError(err.message || "Failed to submit answers");
@@ -493,21 +558,8 @@ export default function ModuleView({
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) throw new Error("Not authenticated");
       const userId = userData.user.id;
-      // Upsert all lesson_progress
-      for (const lesson of lessons) {
-        await supabase.from("lesson_progress").upsert(
-          {
-            student_id: userId,
-            lesson_id: lesson.id,
-            completed: completedLessons.includes(lesson.id),
-            completed_at: completedLessons.includes(lesson.id)
-              ? new Date().toISOString()
-              : null,
-          },
-          { onConflict: "student_id,lesson_id" }
-        );
-      }
-      // --- NEW: Fetch latest completed lessons from DB ---
+
+      // Fetch latest completed lessons from DB
       const { data: lessonProgressData, error: lpError } = await supabase
         .from("lesson_progress")
         .select("lesson_id, completed")
@@ -517,25 +569,30 @@ export default function ModuleView({
           lessons.map((l) => l.id)
         );
       if (lpError) throw lpError;
+
       const dbCompletedLessons = (lessonProgressData || [])
         .filter((lp) => lp.completed)
         .map((lp) => lp.lesson_id);
-      const progress =
-        lessons.length > 0 ? dbCompletedLessons.length / lessons.length : 0;
-      const allLessonsCompleted =
-        lessons.length > 0 && dbCompletedLessons.length === lessons.length;
-      // Upsert student_modules for module progress
-      const { error: upsertError, data: upsertData } = await supabase
+
+      // Calculate progress based on completed lessons
+      const totalLessons = lessons.length;
+      const completedCount = dbCompletedLessons.length;
+      const progress = Math.min(1, Math.max(0, completedCount / totalLessons));
+      const allLessonsCompleted = completedCount === totalLessons;
+
+      // Update module progress
+      const { error: upsertError } = await supabase
         .from("student_modules")
         .upsert(
           {
             student_id: userId,
             module_id: moduleId,
+            progress: progress,
             completed_at: allLessonsCompleted ? new Date().toISOString() : null,
-            progress,
           },
           { onConflict: "student_id,module_id" }
         );
+
       if (upsertError) {
         console.error("Error upserting student_modules:", upsertError);
         setSubmitModuleError(
@@ -543,7 +600,7 @@ export default function ModuleView({
         );
         return;
       }
-      console.log("Upserted student_modules:", upsertData);
+
       setSubmitModuleSuccess(true);
     } catch (err: any) {
       setSubmitModuleError(err.message || "Failed to submit module progress");
@@ -966,6 +1023,7 @@ export default function ModuleView({
               setDraggingChat(true);
               const rect = chatWindowRef.current?.getBoundingClientRect();
               if (rect && e.touches[0]) {
+                setDraggingChat(true);
                 chatDragOffset.current = {
                   x: e.touches[0].clientX - rect.left,
                   y: e.touches[0].clientY - rect.top,
