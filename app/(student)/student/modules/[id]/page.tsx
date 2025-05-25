@@ -34,6 +34,7 @@ export default function ModuleView({
   }>({});
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
+  const [moduleProgress, setModuleProgress] = useState(0);
   const [showXpAnimation, setShowXpAnimation] = useState(false);
   const [selectedAnswers, setSelectedAnswers] = useState<{
     [questionId: string]: number | string | null;
@@ -52,6 +53,7 @@ export default function ModuleView({
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [chatLoading, setChatLoading] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   // Draggable state for collapsed button (x only) and chat window (x, y)
   const SIDEBAR_WIDTH = 256;
@@ -91,121 +93,97 @@ export default function ModuleView({
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      try {
-        // Get current user
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData?.user) {
-          setLoading(false);
-          return;
-        }
-        const userId = userData.user.id;
-
-        // Fetch module
-        const { data: module, error: moduleError } = await supabase
-          .from("modules")
-          .select("*")
-          .eq("id", moduleId)
-          .single();
-
-        if (moduleError || !module) {
-          setLoading(false);
-          return;
-        }
-        setModuleData(module);
-
-        // Fetch lessons for this module
-        const { data: lessonsData, error: lessonsError } = await supabase
-          .from("lessons")
-          .select("*")
-          .eq("module_id", moduleId)
-          .order("order_index", { ascending: true });
-
-        if (lessonsError || !lessonsData) {
-          setLoading(false);
-          return;
-        }
-        setLessons(lessonsData);
-
-        // Fetch quiz questions for each lesson
-        const quizMap: { [lessonId: string]: any[] } = {};
-        let allQuestionIds: string[] = [];
-        for (const lesson of lessonsData) {
-          const { data: questions } = await supabase
-            .from("quiz_questions")
-            .select("*")
-            .eq("lesson_id", lesson.id);
-          quizMap[lesson.id] = questions || [];
-          if (questions) {
-            allQuestionIds = allQuestionIds.concat(
-              questions.map((q: any) => q.id)
-            );
-          }
-        }
-        setQuizQuestions(quizMap);
-
-        // Fetch lesson progress for this user and module
-        const { data: lessonProgressData } = await supabase
-          .from("lesson_progress")
-          .select("lesson_id, completed")
-          .eq("student_id", userId)
-          .eq("completed", true)
-          .in(
-            "lesson_id",
-            lessonsData.map((l) => l.id)
-          );
-
-        // Get unique completed lesson IDs
-        const uniqueCompletedLessons = Array.from(
-          new Set((lessonProgressData || []).map((lp: any) => lp.lesson_id))
-        );
-        setCompletedLessons(uniqueCompletedLessons);
-
-        // Calculate initial progress
-        const progress = Math.min(
-          1,
-          Math.max(0, uniqueCompletedLessons.length / lessonsData.length)
-        );
-
-        // Update module progress in database to ensure consistency
-        await supabase.from("student_modules").upsert(
-          {
-            student_id: userId,
-            module_id: moduleId,
-            progress: progress,
-            completed_at: progress === 1 ? new Date().toISOString() : null,
-          },
-          { onConflict: "student_id,module_id" }
-        );
-
-        // Fetch quiz attempts
-        if (allQuestionIds.length > 0) {
-          const { data: attemptsData } = await supabase
-            .from("quiz_attempts")
-            .select("question_id, selected_index, answer_text")
-            .eq("student_id", userId)
-            .in("question_id", allQuestionIds);
-
-          const answers: { [questionId: string]: number | string | null } = {};
-          for (const attempt of attemptsData || []) {
-            if (
-              attempt.selected_index !== null &&
-              attempt.selected_index !== undefined
-            ) {
-              answers[attempt.question_id] = attempt.selected_index;
-            } else if (
-              attempt.answer_text !== null &&
-              attempt.answer_text !== undefined
-            ) {
-              answers[attempt.question_id] = attempt.answer_text;
-            }
-          }
-          setSelectedAnswers(answers);
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
+      // Get current user
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) {
         setLoading(false);
+        return;
       }
+      const userId = userData.user.id;
+
+      // Fetch module and its progress
+      const [moduleResult, progressResult] = await Promise.all([
+        supabase.from("modules").select("*").eq("id", moduleId).single(),
+        supabase
+          .from("student_modules")
+          .select("progress")
+          .eq("module_id", moduleId)
+          .eq("student_id", userId)
+          .single(),
+      ]);
+
+      if (moduleResult.error || !moduleResult.data) {
+        setLoading(false);
+        return;
+      }
+      setModuleData(moduleResult.data);
+      setModuleProgress(progressResult.data?.progress || 0);
+
+      // Fetch lessons for this module
+      const { data: lessonsData, error: lessonsError } = await supabase
+        .from("lessons")
+        .select("*")
+        .eq("module_id", moduleId)
+        .order("order_index", { ascending: true });
+      if (lessonsError || !lessonsData) {
+        setLoading(false);
+        return;
+      }
+      setLessons(lessonsData);
+
+      // Fetch quiz questions for each lesson
+      const quizMap: { [lessonId: string]: any[] } = {};
+      let allQuestionIds: string[] = [];
+      for (const lesson of lessonsData) {
+        const { data: questions } = await supabase
+          .from("quiz_questions")
+          .select("*")
+          .eq("lesson_id", lesson.id);
+        quizMap[lesson.id] = questions || [];
+        if (questions) {
+          allQuestionIds = allQuestionIds.concat(
+            questions.map((q: any) => q.id)
+          );
+        }
+      }
+      setQuizQuestions(quizMap);
+
+      // Fetch lesson progress for this user and module
+      const { data: lessonProgressData } = await supabase
+        .from("lesson_progress")
+        .select("lesson_id, completed")
+        .eq("student_id", userId);
+      const completed = (lessonProgressData || [])
+        .filter((lp: any) => lp.completed)
+        .map((lp: any) => lp.lesson_id);
+      setCompletedLessons(completed);
+
+      // Fetch quiz attempts and existing progress
+      if (allQuestionIds.length > 0) {
+        const { data: attemptsData } = await supabase
+          .from("quiz_attempts")
+          .select("question_id, is_correct, selected_index, answer_text")
+          .eq("student_id", userId)
+          .in("question_id", allQuestionIds);
+
+        // Pre-populate selectedAnswers
+        const answers: { [questionId: string]: number | string | null } = {};
+        for (const attempt of attemptsData || []) {
+          if (
+            attempt.selected_index !== null &&
+            attempt.selected_index !== undefined
+          ) {
+            answers[attempt.question_id] = attempt.selected_index;
+          } else if (
+            attempt.answer_text !== null &&
+            attempt.answer_text !== undefined
+          ) {
+            answers[attempt.question_id] = attempt.answer_text;
+          }
+        }
+        setSelectedAnswers(answers);
+      }
+      setLoading(false);
     };
     fetchData();
   }, [moduleId]);
@@ -378,6 +356,15 @@ export default function ModuleView({
     };
   }, [resizing]);
 
+  useEffect(() => {
+    if (showSuccessPopup) {
+      const timer = setTimeout(() => {
+        setShowSuccessPopup(false);
+      }, 3000); // Hide after 3 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessPopup]);
+
   if (loading) {
     return <div className="p-8 text-center">Loading module...</div>;
   }
@@ -393,34 +380,24 @@ export default function ModuleView({
   const isFirstLesson = currentLessonIndex === 0;
   const isLastLesson = currentLessonIndex === lessons.length - 1;
   const isLessonCompleted = completedLessons.includes(currentLesson?.id);
-
-  // Calculate progress based on unique completed lessons
-  const uniqueCompletedLessons = Array.from(new Set(completedLessons));
-  const progress =
-    lessons.length > 0
-      ? Math.min(1, Math.max(0, uniqueCompletedLessons.length / lessons.length))
-      : 0;
-
-  // Check if all lessons are completed
-  const allLessonsCompleted =
-    lessons.length > 0 && uniqueCompletedLessons.length === lessons.length;
-
-  // Determine module status
-  const moduleStatus = allLessonsCompleted
-    ? "completed"
-    : progress > 0
-    ? "in-progress"
-    : "not-started";
+  const progress = moduleProgress;
+  const allLessonsCompleted = progress === 1;
 
   const handlePreviousLesson = () => {
     if (!isFirstLesson) {
       setCurrentLessonIndex(currentLessonIndex - 1);
+      // Reset quiz submission states
+      setSubmitSuccess(false);
+      setSubmitError(null);
     }
   };
 
   const handleNextLesson = () => {
     if (!isLastLesson) {
       setCurrentLessonIndex(currentLessonIndex + 1);
+      // Reset quiz submission states
+      setSubmitSuccess(false);
+      setSubmitError(null);
     }
   };
 
@@ -495,14 +472,27 @@ export default function ModuleView({
         let answerText = null;
         if (question.type === "multiple_choice") {
           selectedIndex = answer as number;
-          isCorrect = selectedIndex === question.correct_index;
-        } else {
+          isCorrect = question.correct_index === selectedIndex;
+          answerText =
+            question.options[selectedIndex]?.option ??
+            question.options[selectedIndex];
+        } else if (question.type === "free_response") {
           answerText = answer as string;
-          isCorrect =
-            answerText.toLowerCase().trim() ===
-            question.correct_answer.toLowerCase().trim();
+          const userAnswer =
+            typeof answerText === "string"
+              ? answerText.trim().toLowerCase()
+              : "";
+          const correctRaw = question.correct_answer_text;
+          let correctAnswer = "";
+          if (typeof correctRaw === "string") {
+            correctAnswer = correctRaw.trim().toLowerCase();
+          } else if (typeof correctRaw === "number") {
+            correctAnswer = String(correctRaw);
+          }
+          isCorrect = userAnswer === correctAnswer;
         }
 
+        // Insert quiz attempt
         await supabase.from("quiz_attempts").insert({
           student_id: userId,
           question_id: question.id,
@@ -513,45 +503,48 @@ export default function ModuleView({
         });
       }
 
-      // Mark lesson as completed if not already completed
-      if (!completedLessons.includes(currentLesson.id)) {
-        // Update local state
-        const newCompletedLessons = Array.from(
-          new Set([...completedLessons, currentLesson.id])
-        );
-        setCompletedLessons(newCompletedLessons);
+      // Mark lesson as completed in lesson_progress
+      await supabase.from("lesson_progress").upsert(
+        {
+          student_id: userId,
+          lesson_id: currentLesson.id,
+          completed: true,
+          completed_at: new Date().toISOString(),
+        },
+        { onConflict: "student_id,lesson_id" }
+      );
 
-        // Calculate new progress based on unique completed lessons
-        const progress = Math.min(
-          1,
-          Math.max(0, newCompletedLessons.length / lessons.length)
-        );
-        const isFullyComplete = progress === 1;
+      // Update completedLessons state
+      const newCompletedLessons = [...completedLessons, currentLesson.id];
+      setCompletedLessons(newCompletedLessons);
 
-        // Update lesson progress
-        await supabase.from("lesson_progress").upsert(
-          {
-            student_id: userId,
-            lesson_id: currentLesson.id,
-            completed: true,
-            completed_at: new Date().toISOString(),
-          },
-          { onConflict: "student_id,lesson_id" }
-        );
+      // Calculate new progress based on lessons with quizzes
+      const lessonsWithQuizzes = lessons.filter(
+        (lesson) => quizQuestions[lesson.id]?.length > 0
+      );
+      const completedQuizLessons = newCompletedLessons.filter(
+        (lessonId) => quizQuestions[lessonId]?.length > 0
+      );
+      const newProgress =
+        lessonsWithQuizzes.length > 0
+          ? completedQuizLessons.length / lessonsWithQuizzes.length
+          : 0;
 
-        // Update module progress
-        await supabase.from("student_modules").upsert(
-          {
-            student_id: userId,
-            module_id: moduleId,
-            progress: progress,
-            completed_at: isFullyComplete ? new Date().toISOString() : null,
-          },
-          { onConflict: "student_id,module_id" }
-        );
-      }
+      setModuleProgress(newProgress);
+
+      // Update student_modules
+      await supabase.from("student_modules").upsert(
+        {
+          student_id: userId,
+          module_id: moduleId,
+          progress: newProgress,
+          completed_at: newProgress === 1 ? new Date().toISOString() : null,
+        },
+        { onConflict: "student_id,module_id" }
+      );
 
       setSubmitSuccess(true);
+      setShowSuccessPopup(true);
     } catch (err: any) {
       setSubmitError(err.message || "Failed to submit answers");
     } finally {
@@ -568,7 +561,22 @@ export default function ModuleView({
       if (!userData?.user) throw new Error("Not authenticated");
       const userId = userData.user.id;
 
-      // Fetch latest completed lessons from DB
+      // Upsert all lesson_progress
+      for (const lesson of lessons) {
+        await supabase.from("lesson_progress").upsert(
+          {
+            student_id: userId,
+            lesson_id: lesson.id,
+            completed: completedLessons.includes(lesson.id),
+            completed_at: completedLessons.includes(lesson.id)
+              ? new Date().toISOString()
+              : null,
+          },
+          { onConflict: "student_id,lesson_id" }
+        );
+      }
+
+      // --- NEW: Fetch latest completed lessons from DB ---
       const { data: lessonProgressData, error: lpError } = await supabase
         .from("lesson_progress")
         .select("lesson_id, completed")
@@ -583,25 +591,34 @@ export default function ModuleView({
         .filter((lp) => lp.completed)
         .map((lp) => lp.lesson_id);
 
-      // Calculate progress based on completed lessons
-      const totalLessons = lessons.length;
-      const completedCount = dbCompletedLessons.length;
-      const progress = Math.min(1, Math.max(0, completedCount / totalLessons));
-      const allLessonsCompleted = completedCount === totalLessons;
+      // Calculate progress based on lessons with quizzes
+      const lessonsWithQuizzes = lessons.filter(
+        (lesson) => quizQuestions[lesson.id]?.length > 0
+      );
+      const completedQuizLessons = dbCompletedLessons.filter(
+        (lessonId) => quizQuestions[lessonId]?.length > 0
+      );
+      const progress =
+        lessonsWithQuizzes.length > 0
+          ? completedQuizLessons.length / lessonsWithQuizzes.length
+          : 0;
 
-      // Update module progress
-      const { error: upsertError } = await supabase
+      const allLessonsCompleted =
+        lessonsWithQuizzes.length > 0 &&
+        completedQuizLessons.length === lessonsWithQuizzes.length;
+
+      // Upsert student_modules for module progress
+      const { error: upsertError, data: upsertData } = await supabase
         .from("student_modules")
         .upsert(
           {
             student_id: userId,
             module_id: moduleId,
-            progress: progress,
             completed_at: allLessonsCompleted ? new Date().toISOString() : null,
+            progress,
           },
           { onConflict: "student_id,module_id" }
         );
-
       if (upsertError) {
         console.error("Error upserting student_modules:", upsertError);
         setSubmitModuleError(
@@ -609,7 +626,7 @@ export default function ModuleView({
         );
         return;
       }
-
+      console.log("Upserted student_modules:", upsertData);
       setSubmitModuleSuccess(true);
     } catch (err: any) {
       setSubmitModuleError(err.message || "Failed to submit module progress");
@@ -618,7 +635,7 @@ export default function ModuleView({
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-background">
-      <div className="w-full max-w-7xl mx-auto space-y-6 pt-8">
+      <div className="w-full max-w-4xl mx-auto space-y-6 pt-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" asChild>
@@ -720,7 +737,13 @@ export default function ModuleView({
           <div className="md:col-span-4 space-y-6">
             <Card className="bg-background/80 shadow-lg">
               <CardContent className="p-8">
-                <Tabs defaultValue="lesson">
+                <Tabs
+                  defaultValue="lesson"
+                  onValueChange={() => {
+                    setSubmitSuccess(false);
+                    setSubmitError(null);
+                  }}
+                >
                   <TabsList className="mb-6">
                     <TabsTrigger value="lesson">Lesson</TabsTrigger>
                     <TabsTrigger value="quiz">Quiz</TabsTrigger>
@@ -729,12 +752,7 @@ export default function ModuleView({
                   <TabsContent value="lesson">
                     {currentLesson ? (
                       <div
-                        className="prose dark:prose-invert max-w-none 
-                          prose-headings:mb-2 prose-p:mb-2 prose-ul:my-2 prose-li:my-0 
-                          prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg 
-                          prose-p:text-base prose-li:text-base
-                          prose-pre:my-2 prose-code:text-sm
-                          prose-img:my-2"
+                        className="prose dark:prose-invert prose-sm sm:prose-base max-w-none"
                         dangerouslySetInnerHTML={{
                           __html: currentLesson.content,
                         }}
@@ -828,11 +846,6 @@ export default function ModuleView({
                       </div>
                       {submitError && (
                         <div className="text-red-500">{submitError}</div>
-                      )}
-                      {submitSuccess && (
-                        <div className="text-green-600">
-                          Quiz submitted! Lesson marked as complete.
-                        </div>
                       )}
                       <div className="flex justify-end mt-6">
                         <Button
@@ -1032,7 +1045,6 @@ export default function ModuleView({
               setDraggingChat(true);
               const rect = chatWindowRef.current?.getBoundingClientRect();
               if (rect && e.touches[0]) {
-                setDraggingChat(true);
                 chatDragOffset.current = {
                   x: e.touches[0].clientX - rect.left,
                   y: e.touches[0].clientY - rect.top,
@@ -1234,6 +1246,13 @@ export default function ModuleView({
               </svg>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg transition-opacity duration-300 z-50">
+          Quiz submitted! Lesson marked as complete.
         </div>
       )}
     </div>

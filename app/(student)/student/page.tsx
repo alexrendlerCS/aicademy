@@ -19,7 +19,124 @@ export default function StudentDashboard() {
   const [level, setLevel] = useState(1);
   const [achievements, setAchievements] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
+  const [classProgress, setClassProgress] = useState<
+    Array<{
+      id: string;
+      name: string;
+      progress: number;
+      totalQuizzes: number;
+      completedQuizzes: number;
+    }>
+  >([]);
   const router = useRouter();
+
+  // Fetch class progress
+  const fetchClassProgress = async (userId: string) => {
+    try {
+      // Get all classes where student is approved
+      const { data: memberships } = await supabase
+        .from("class_memberships")
+        .select("class_id")
+        .eq("student_id", userId)
+        .eq("status", "approved");
+
+      if (!memberships?.length) return;
+      const classIds = memberships.map((m) => m.class_id);
+
+      // Get class details
+      const { data: classes } = await supabase
+        .from("classes")
+        .select("*")
+        .in("id", classIds);
+
+      if (!classes?.length) return;
+
+      // For each class, calculate progress
+      const progressPromises = classes.map(async (cls) => {
+        // Get all module assignments for this class
+        const { data: moduleAssignments } = await supabase
+          .from("module_assignments")
+          .select("module_id")
+          .eq("class_id", cls.id);
+
+        if (!moduleAssignments?.length) {
+          return {
+            id: cls.id,
+            name: cls.name,
+            progress: 0,
+            totalQuizzes: 0,
+            completedQuizzes: 0,
+          };
+        }
+
+        const moduleIds = moduleAssignments.map((ma) => ma.module_id);
+
+        // Get all lessons with their quiz questions for these modules
+        const { data: lessonsWithQuizzes } = await supabase
+          .from("lessons")
+          .select(
+            `
+            id,
+            module_id,
+            quiz_questions (
+              id
+            )
+          `
+          )
+          .in("module_id", moduleIds);
+
+        // Filter to only lessons that have quiz questions
+        const quizLessons = (lessonsWithQuizzes || []).filter(
+          (lesson) => lesson.quiz_questions && lesson.quiz_questions.length > 0
+        );
+
+        if (!quizLessons.length) {
+          return {
+            id: cls.id,
+            name: cls.name,
+            progress: 0,
+            totalQuizzes: 0,
+            completedQuizzes: 0,
+          };
+        }
+
+        // Get lesson progress for this student
+        const { data: lessonProgress } = await supabase
+          .from("lesson_progress")
+          .select("*")
+          .eq("student_id", userId)
+          .in(
+            "lesson_id",
+            quizLessons.map((l) => l.id)
+          )
+          .eq("completed", true);
+
+        const totalQuizzes = quizLessons.length;
+        const completedCount = lessonProgress?.length || 0;
+        const progress =
+          totalQuizzes > 0 ? (completedCount / totalQuizzes) * 100 : 0;
+
+        return {
+          id: cls.id,
+          name: cls.name,
+          progress,
+          totalQuizzes,
+          completedQuizzes: completedCount,
+        };
+      });
+
+      const classProgressData = await Promise.all(progressPromises);
+
+      // Add some debug logging
+      console.log("Class Progress Data:", classProgressData);
+
+      setClassProgress(
+        classProgressData.sort((a, b) => b.progress - a.progress)
+      );
+    } catch (error) {
+      console.error("Error fetching class progress:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -29,6 +146,9 @@ export default function StudentDashboard() {
       if (!userData?.user) return;
       setUser(userData.user);
       const userId = userData.user.id;
+
+      // Fetch class progress
+      await fetchClassProgress(userId);
 
       // 1. Get all class IDs where the student is approved
       const { data: memberships } = await supabase
@@ -240,17 +360,50 @@ export default function StudentDashboard() {
             <p className="text-xs text-muted-foreground">XP from all modules</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Achievements</CardTitle>
-            <Award className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{achievementsCount}</div>
-            <p className="text-xs text-muted-foreground">Badges earned</p>
-          </CardContent>
-        </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Your Progress</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {classProgress.length === 0 ? (
+              <div className="text-center text-muted-foreground py-4">
+                <p>No class progress to show yet.</p>
+                <p className="text-sm">
+                  Join some classes to start tracking your progress!
+                </p>
+              </div>
+            ) : (
+              classProgress.map((cls) => (
+                <div key={cls.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {cls.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {cls.completedQuizzes} of {cls.totalQuizzes} quizzes
+                        completed
+                      </p>
+                    </div>
+                    <div className="font-medium text-sm">
+                      {Math.round(cls.progress)}%
+                    </div>
+                  </div>
+                  <ProgressBar
+                    value={cls.progress}
+                    max={100}
+                    showLabel={false}
+                    color="primary"
+                  />
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -565,32 +718,6 @@ export default function StudentDashboard() {
           )}
         </div>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Progress (Coming Soon)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {subjectProgress.map((s) => (
-              <div key={s.subject}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{s.subject}</p>
-                  </div>
-                  <div className="font-medium text-sm">{s.value}%</div>
-                </div>
-                <ProgressBar
-                  value={s.value}
-                  max={100}
-                  showLabel={false}
-                  color={s.subject.toLowerCase() as any}
-                />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
