@@ -38,7 +38,7 @@ export default function TeacherModules() {
       }
       const { data, error: modulesError } = await supabase
         .from("modules")
-        .select("*, lessons(count)")
+        .select("*, lessons(id)")
         .eq("teacher_id", user.id)
         .order("created_at", { ascending: false });
       if (modulesError) {
@@ -46,7 +46,12 @@ export default function TeacherModules() {
         setLoading(false);
         return;
       }
-      setModules(data || []);
+      // Process modules to include lesson count
+      const processedModules = (data || []).map((module) => ({
+        ...module,
+        lessonCount: module.lessons ? module.lessons.length : 0,
+      }));
+      setModules(processedModules);
       setLoading(false);
     };
     fetchModules();
@@ -134,7 +139,7 @@ export default function TeacherModules() {
               title={module.title}
               subject={module.subject}
               description={module.description}
-              lessonCount={module.lessons?.length || module.lessons?.count || 0}
+              lessonCount={module.lessonCount}
               userType="teacher"
             />
           ))}

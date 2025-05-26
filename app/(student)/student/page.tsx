@@ -143,72 +143,102 @@ export default function StudentDashboard() {
       setLoading(true);
       // Get user
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
+      if (!userData?.user) {
+        setLoading(false);
+        return;
+      }
       setUser(userData.user);
       const userId = userData.user.id;
 
       // Fetch class progress
       await fetchClassProgress(userId);
 
-      // 1. Get all class IDs where the student is approved
-      const { data: memberships } = await supabase
-        .from("class_memberships")
-        .select("class_id")
-        .eq("student_id", userId)
-        .eq("status", "approved");
-      const approvedClassIds = (memberships || []).map((m) => m.class_id);
-      console.log("approvedClassIds", approvedClassIds);
+      // Fetch classes with teacher name
+      const { data: classes, error } = await supabase
+        .from("classes")
+        .select(
+          `
+          *,
+          users!classes_teacher_id_fkey (
+            full_name
+          ),
+          class_memberships!inner(status)
+        `
+        )
+        .eq("class_memberships.student_id", userId);
 
-      // 2. Get all module assignments for those classes or directly to the student
-      let moduleAssignmentsQuery = supabase
+      if (error) {
+        console.error("Error fetching classes:", error);
+        setLoading(false);
+        return;
+      }
+
+      console.log("Raw classes data:", classes);
+
+      // Get all module assignments for the student's classes
+      const classIds = (classes || []).map(cls => cls.id);
+      const { data: moduleAssignments } = await supabase
         .from("module_assignments")
-        .select("module_id, due_date, class_id, student_id");
-      if (approvedClassIds.length > 0) {
-        moduleAssignmentsQuery = moduleAssignmentsQuery.or(
-          `class_id.in.(${approvedClassIds.join(",")}),student_id.eq.${userId}`
-        );
-      } else {
-        moduleAssignmentsQuery = moduleAssignmentsQuery.eq(
-          "student_id",
-          userId
-        );
-      }
-      const { data: moduleAssignments } = await moduleAssignmentsQuery;
-      const moduleIdToDueDate: Record<string, string> = {};
-      (moduleAssignments || []).forEach((ma) => {
-        if (ma.module_id && ma.due_date)
-          moduleIdToDueDate[ma.module_id] = ma.due_date;
-      });
-      const moduleIds = (moduleAssignments || []).map((ma) => ma.module_id);
-      console.log("moduleIds", moduleIds);
+        .select("module_id, class_id, due_date")
+        .in("class_id", classIds);
 
-      // 3. Get the modules
-      let modulesData: any[] = [];
-      if (moduleIds.length > 0) {
-        const { data: modulesResult } = await supabase
-          .from("modules")
-          .select("*")
-          .in("id", moduleIds);
-        modulesData = modulesResult || [];
+      if (!moduleAssignments?.length) {
+        setLoading(false);
+        return;
       }
-      console.log("modulesData", modulesData);
+
+      const moduleIds = moduleAssignments.map(ma => ma.module_id);
+      
+      // Create a map of module IDs to their due dates
+      const moduleDueDates: Record<string, string> = {};
+      moduleAssignments.forEach(ma => {
+        if (ma.module_id && ma.due_date) {
+          // If there are multiple assignments for the same module, take the latest due date
+          if (!moduleDueDates[ma.module_id] || new Date(ma.due_date) > new Date(moduleDueDates[ma.module_id])) {
+            moduleDueDates[ma.module_id] = ma.due_date;
+          }
+        }
+      });
+
+      // Fetch all modules with their lessons
+      const { data: modulesData } = await supabase
+        .from("modules")
+        .select(`
+          *,
+          lessons(id)
+        `)
+        .in("id", moduleIds);
+
+      if (!modulesData) {
+        setLoading(false);
+        return;
+      }
 
       // Get progress for each module
       const modulesWithProgress = await Promise.all(
-        (modulesData || []).map(async (module: any) => {
+        modulesData.map(async (module) => {
           const { data: progress } = await supabase
             .from("student_modules")
             .select("completed_at, progress")
             .eq("module_id", module.id)
             .eq("student_id", userId)
             .single();
+
+          // Find the class this module belongs to
+          const moduleAssignment = moduleAssignments.find(ma => ma.module_id === module.id);
+          const moduleClass = classes?.find(c => c.id === moduleAssignment?.class_id);
+
           return {
             ...module,
             progress: progress || { completed_at: null, progress: 0 },
-            due_date: moduleIdToDueDate[module.id] || null,
+            due_date: moduleDueDates[module.id] || null,
+            lessonCount: module.lessons ? module.lessons.length : 0,
+            teacherName: moduleClass?.users?.full_name || "Unknown Teacher"
           };
         })
       );
+
+      console.log("Processed modules:", modulesWithProgress);
       setModules(modulesWithProgress);
 
       // Get XP and level (from user profile or progress)
@@ -466,6 +496,11 @@ export default function StudentDashboard() {
                       <div className="text-base text-muted-foreground line-clamp-2">
                         {module.description}
                       </div>
+                      <div className="flex items-center gap-1.5 text-sm font-medium text-primary mt-2">
+                        <BookOpen className="h-4 w-4" />
+                        {module.lessonCount}{" "}
+                        {module.lessonCount === 1 ? "Lesson" : "Lessons"}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mb-2">
@@ -564,6 +599,11 @@ export default function StudentDashboard() {
                       <div className="text-base text-muted-foreground line-clamp-2">
                         {module.description}
                       </div>
+                      <div className="flex items-center gap-1.5 text-sm font-medium text-primary mt-2">
+                        <BookOpen className="h-4 w-4" />
+                        {module.lessonCount}{" "}
+                        {module.lessonCount === 1 ? "Lesson" : "Lessons"}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mb-2">
@@ -660,6 +700,11 @@ export default function StudentDashboard() {
                       </div>
                       <div className="text-base text-muted-foreground line-clamp-2">
                         {module.description}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-sm font-medium text-primary mt-2">
+                        <BookOpen className="h-4 w-4" />
+                        {module.lessonCount}{" "}
+                        {module.lessonCount === 1 ? "Lesson" : "Lessons"}
                       </div>
                     </div>
                   </div>

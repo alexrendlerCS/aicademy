@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, BookOpen } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { SubjectIcon } from "@/components/subject-icon";
 import { ProgressBar } from "@/components/progress-bar";
@@ -130,12 +130,12 @@ export default function StudentModulesPage() {
       if (moduleIds.length > 0) {
         const { data: modulesResult } = await supabase
           .from("modules")
-          .select("*")
+          .select("*, lessons(id)")
           .in("id", moduleIds);
         modulesData = modulesResult || [];
       }
 
-      // 4. Get progress for each module and lesson count
+      // 4. Get progress for each module
       const modulesWithProgress = await Promise.all(
         (modulesData || []).map(async (module: any) => {
           const { data: progress } = await supabase
@@ -144,15 +144,10 @@ export default function StudentModulesPage() {
             .eq("module_id", module.id)
             .eq("student_id", userId)
             .single();
-          // Fetch lesson count for this module
-          const { count: lessonCount } = await supabase
-            .from("lessons")
-            .select("id", { count: "exact", head: true })
-            .eq("module_id", module.id);
           return {
             ...module,
             progress: progress || { completed_at: null, progress: 0 },
-            lessonCount: lessonCount || 0,
+            lessonCount: module.lessons ? module.lessons.length : 0,
             due_date: moduleIdToDueDate[module.id] || null,
             class_id: moduleIdToClassId[module.id] || null,
           };
@@ -436,6 +431,11 @@ export default function StudentModulesPage() {
                       </div>
                       <div className="text-base text-muted-foreground line-clamp-2">
                         {module.description}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-sm font-medium text-primary mt-2">
+                        <BookOpen className="h-4 w-4" />
+                        {module.lessonCount}{" "}
+                        {module.lessonCount === 1 ? "Lesson" : "Lessons"}
                       </div>
                     </div>
                   </div>
