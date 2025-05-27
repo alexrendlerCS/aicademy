@@ -143,10 +143,7 @@ export default function StudentDashboard() {
       setLoading(true);
       // Get user
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) {
-        setLoading(false);
-        return;
-      }
+      if (!userData?.user) return;
       setUser(userData.user);
       const userId = userData.user.id;
 
@@ -165,80 +162,55 @@ export default function StudentDashboard() {
           class_memberships!inner(status)
         `
         )
-        .eq("class_memberships.student_id", userId);
+        .eq("class_memberships.student_id", user.id);
 
       if (error) {
         console.error("Error fetching classes:", error);
-        setLoading(false);
-        return;
+        throw error;
       }
 
       console.log("Raw classes data:", classes);
 
-      // Get all module assignments for the student's classes
-      const classIds = (classes || []).map(cls => cls.id);
-      const { data: moduleAssignments } = await supabase
-        .from("module_assignments")
-        .select("module_id, class_id, due_date")
-        .in("class_id", classIds);
+      // For each class, fetch module count
+      const classesWithModules = await Promise.all(
+        (classes || []).map(async (cls) => {
+          console.log("Processing class:", cls);
+          console.log("Teacher data:", cls.users);
+          // Count modules assigned to this class
+          const { count: moduleCount } = await supabase
+            .from("module_assignments")
+            .select("id", { count: "exact", head: true })
+            .eq("class_id", cls.id);
 
-      if (!moduleAssignments?.length) {
-        setLoading(false);
-        return;
-      }
-
-      const moduleIds = moduleAssignments.map(ma => ma.module_id);
-      
-      // Create a map of module IDs to their due dates
-      const moduleDueDates: Record<string, string> = {};
-      moduleAssignments.forEach(ma => {
-        if (ma.module_id && ma.due_date) {
-          // If there are multiple assignments for the same module, take the latest due date
-          if (!moduleDueDates[ma.module_id] || new Date(ma.due_date) > new Date(moduleDueDates[ma.module_id])) {
-            moduleDueDates[ma.module_id] = ma.due_date;
-          }
-        }
-      });
-
-      // Fetch all modules with their lessons
-      const { data: modulesData } = await supabase
-        .from("modules")
-        .select(`
-          *,
-          lessons(id)
-        `)
-        .in("id", moduleIds);
-
-      if (!modulesData) {
-        setLoading(false);
-        return;
-      }
-
-      // Get progress for each module
-      const modulesWithProgress = await Promise.all(
-        modulesData.map(async (module) => {
-          const { data: progress } = await supabase
-            .from("student_modules")
-            .select("completed_at, progress")
-            .eq("module_id", module.id)
-            .eq("student_id", userId)
-            .single();
-
-          // Find the class this module belongs to
-          const moduleAssignment = moduleAssignments.find(ma => ma.module_id === module.id);
-          const moduleClass = classes?.find(c => c.id === moduleAssignment?.class_id);
-
-          return {
-            ...module,
-            progress: progress || { completed_at: null, progress: 0 },
-            due_date: moduleDueDates[module.id] || null,
-            lessonCount: module.lessons ? module.lessons.length : 0,
-            teacherName: moduleClass?.users?.full_name || "Unknown Teacher"
+          const classData = {
+            ...cls,
+            membership: cls.class_memberships[0],
+            teacherName: cls.users?.full_name || "Unknown Teacher",
+            moduleCount: moduleCount || 0,
           };
+
+          console.log("Processed class data:", classData);
+          return classData;
         })
       );
 
-      console.log("Processed modules:", modulesWithProgress);
+      // Get progress for each module
+      const modulesWithProgress = await Promise.all(
+        (classesWithModules || []).map(async (cls) => {
+          const { data: progress } = await supabase
+            .from("student_modules")
+            .select("completed_at, progress")
+            .eq("module_id", cls.id)
+            .eq("student_id", userId)
+            .single();
+          return {
+            ...cls,
+            progress: progress || { completed_at: null, progress: 0 },
+            due_date: cls.membership?.due_date || null,
+            lessonCount: cls.lessons ? cls.lessons.length : 0,
+          };
+        })
+      );
       setModules(modulesWithProgress);
 
       // Get XP and level (from user profile or progress)

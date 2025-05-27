@@ -14,6 +14,7 @@ import {
   Home,
   MessageCircle,
   X,
+  Bot,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -22,6 +23,7 @@ import { use as usePromise } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function ModuleView({
   params,
@@ -962,11 +964,11 @@ export default function ModuleView({
         >
           <button
             ref={collapsedBtnRef}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-t-xl shadow-lg hover:bg-primary/90 transition-all border border-primary pointer-events-auto select-none active:scale-95"
+            className="flex items-center justify-center w-12 h-12 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-all border border-primary pointer-events-auto select-none active:scale-95"
             style={{
               position: "absolute",
               left: collapsedX,
-              bottom: 0,
+              bottom: 16,
               margin: 0,
               cursor: draggingCollapsed ? "grabbing" : "grab",
               zIndex: 100,
@@ -991,8 +993,8 @@ export default function ModuleView({
             }}
             onClick={() => !draggingCollapsed && setChatOpen(true)}
           >
-            <MessageCircle className="h-5 w-5" />
-            <span className="font-semibold">AI Assistant</span>
+            <Bot className="h-6 w-6" />
+            <span className="sr-only">Open AI Tutor</span>
           </button>
         </div>
       ) : (
@@ -1056,7 +1058,7 @@ export default function ModuleView({
             }}
           >
             <div className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5" /> AI Assistant
+              <MessageCircle className="h-5 w-5" /> AI Tutor
             </div>
             <button
               onClick={() => setChatOpen(false)}
@@ -1199,10 +1201,15 @@ export default function ModuleView({
             <input
               type="text"
               className="flex-1 rounded border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-              placeholder="Ask the AI assistant..."
+              placeholder="Ask the AI tutor..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendChat(e);
+                }
+              }}
             />
             <Button type="submit" size="sm" disabled={!chatInput.trim()}>
               Send

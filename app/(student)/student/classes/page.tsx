@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -31,21 +31,12 @@ type Class = any & {
   };
 };
 
-type TeacherClass = any & {
-  teacher: {
-    full_name: string;
-  };
-};
-
 export default function StudentClassesPage() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [classCode, setClassCode] = useState("");
-  const [teacherSearch, setTeacherSearch] = useState("");
-  const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([]);
-  const [searchingTeachers, setSearchingTeachers] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -59,69 +50,53 @@ export default function StudentClassesPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch classes with teacher name
+      // Fetch classes with teacher name using the class_with_teacher view
       const { data: classes, error } = await supabase
-        .from("classes")
+        .from("class_with_teacher")
         .select(
           `
           *,
-          teacher:users!classes_teacher_id_fkey(full_name),
           class_memberships!inner(status)
         `
         )
         .eq("class_memberships.student_id", user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Query error:", error);
+        throw error;
+      }
+
+      console.log("Raw classes data from query:", classes);
 
       // For each class, fetch module count
       const classesWithModules = await Promise.all(
         (classes || []).map(async (cls) => {
+          console.log("Processing class:", cls);
+
           // Count modules assigned to this class
           const { count: moduleCount } = await supabase
             .from("module_assignments")
             .select("id", { count: "exact", head: true })
             .eq("class_id", cls.id);
-          return {
+
+          const processedClass = {
             ...cls,
             membership: cls.class_memberships[0],
-            teacherName: cls.teacher?.full_name || "Unknown Teacher",
+            teacherName: cls.teacher_name || "Unknown Teacher",
             moduleCount: moduleCount || 0,
           };
+
+          console.log("Processed class with teacher:", processedClass);
+          return processedClass;
         })
       );
 
+      console.log("Final classes with modules:", classesWithModules);
       setClasses(classesWithModules);
     } catch (error) {
       console.error("Error fetching classes:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const searchTeacherClasses = async () => {
-    if (!teacherSearch.trim()) return;
-    setSearchingTeachers(true);
-    try {
-      const { data: classes, error } = await supabase
-        .from("classes")
-        .select(
-          `
-          *,
-          teacher:profiles!classes_created_by_fkey(
-            full_name
-          )
-        `
-        )
-        .ilike("teacher.full_name", `%${teacherSearch}%`);
-
-      if (error) throw error;
-
-      setTeacherClasses(classes || []);
-    } catch (error) {
-      console.error("Error searching teacher classes:", error);
-      toast.error("Failed to search teacher classes");
-    } finally {
-      setSearchingTeachers(false);
     }
   };
 
@@ -196,46 +171,6 @@ export default function StudentClassesPage() {
     }
   };
 
-  const requestJoinClass = async (classId: string) => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Check if already a member
-      const { data: existingMembership } = await supabase
-        .from("class_memberships")
-        .select("id")
-        .eq("class_id", classId)
-        .eq("student_id", user.id)
-        .single();
-
-      if (existingMembership) {
-        toast.error("You are already a member of this class");
-        return;
-      }
-
-      // Create membership request
-      const { error: membershipError } = await supabase
-        .from("class_memberships")
-        .insert({
-          class_id: classId,
-          student_id: user.id,
-          status: "pending",
-        });
-
-      if (membershipError) throw membershipError;
-
-      toast.success("Join request sent successfully");
-      setIsDialogOpen(false);
-      fetchClasses(); // Refresh the classes list
-    } catch (error) {
-      console.error("Error requesting to join class:", error);
-      toast.error("Failed to request joining class");
-    }
-  };
-
   const filteredClasses = classes.filter(
     (cls) =>
       cls.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -261,13 +196,7 @@ export default function StudentClassesPage() {
         {/* Header row: title and join button */}
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-2">
           <h1 className="text-3xl font-bold">My Classes</h1>
-          <Dialog
-            open={isDialogOpen}
-            onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (open) toast("Dialog opened");
-            }}
-          >
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="mt-2 md:mt-0">
                 <Plus className="mr-2 h-4 w-4" />
@@ -278,71 +207,21 @@ export default function StudentClassesPage() {
               <DialogHeader>
                 <DialogTitle>Join a Class</DialogTitle>
                 <DialogDescription>
-                  Enter a class code or search for a teacher to join their
-                  class.
+                  Enter a class code to request to join the class.
                 </DialogDescription>
               </DialogHeader>
-              <Tabs defaultValue="code" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="code">Class Code</TabsTrigger>
-                  <TabsTrigger value="teacher">Find Teacher (Beta)</TabsTrigger>
-                </TabsList>
-                <TabsContent value="code" className="space-y-4">
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="Enter class code"
-                      value={classCode}
-                      onChange={(e) => setClassCode(e.target.value)}
-                    />
-                    <Button onClick={joinClassByCode} className="w-full">
-                      Join Class
-                    </Button>
-                  </div>
-                </TabsContent>
-                <TabsContent value="teacher" className="space-y-4">
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Search teacher name"
-                        value={teacherSearch}
-                        onChange={(e) => setTeacherSearch(e.target.value)}
-                      />
-                      <Button onClick={searchTeacherClasses}>Search</Button>
-                    </div>
-                    {searchingTeachers ? (
-                      <div className="text-center py-4">Searching...</div>
-                    ) : teacherClasses.length > 0 ? (
-                      <div className="space-y-2">
-                        {teacherClasses.map((cls) => (
-                          <Card key={cls.id}>
-                            <CardHeader className="p-4">
-                              <CardTitle className="text-base">
-                                {cls.name}
-                              </CardTitle>
-                              <CardDescription>
-                                Teacher: {cls.teacher.full_name}
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent className="p-4 pt-0">
-                              <Button
-                                variant="outline"
-                                className="w-full"
-                                onClick={() => requestJoinClass(cls.id)}
-                              >
-                                Request to Join
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : teacherSearch ? (
-                      <div className="text-center py-4 text-muted-foreground">
-                        No classes found
-                      </div>
-                    ) : null}
-                  </div>
-                </TabsContent>
-              </Tabs>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Enter class code"
+                    value={classCode}
+                    onChange={(e) => setClassCode(e.target.value)}
+                  />
+                  <Button onClick={joinClassByCode} className="w-full">
+                    Request to Join Class
+                  </Button>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
