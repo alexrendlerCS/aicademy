@@ -3,7 +3,6 @@ import type React from "react";
 import { useEffect, useState, useRef } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { AIAssistantButton } from "@/components/ai-assistant-button";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Dialog,
@@ -15,6 +14,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { UserNav } from "@/components/user-nav";
+import { MainNav } from "@/components/main-nav";
+import { SidebarNav } from "@/components/sidebar-nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function StudentLayout({
   children,
@@ -146,8 +153,8 @@ export default function StudentLayout({
       />
       <SidebarInset>
         <div className="container py-6 max-w-7xl">{children}</div>
-        <AIAssistantButton />
       </SidebarInset>
+
       {/* Profile modal */}
       <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
         <DialogContent>

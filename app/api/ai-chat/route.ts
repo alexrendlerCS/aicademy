@@ -1,6 +1,89 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateSystemPrompt } from "@/lib/ai-utils";
 
+// Helper function to ensure markdown formatting
+function ensureMarkdownFormatting(content: string): string {
+  // If the content already has proper markdown headers (without colons), return as is
+  if (content.match(/^###\s+[\w\s]+\n/)) {
+    return content;
+  }
+
+  // Extract sections from plain text response
+  const sections = {
+    topic: "",
+    answer: "",
+    quote: "",
+    followUp: [] as string[],
+  };
+
+  const lines = content.split("\n");
+  let currentSection = "";
+  let inQuote = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Handle different variations of section headers
+    if (
+      trimmed.match(
+        /^(###\s*)?(Functions|Variables|Loops|Arrays|Objects|[\w\s]+):?/i
+      )
+    ) {
+      currentSection = "topic";
+      sections.topic = trimmed
+        .replace(/^(###\s*)?/i, "")
+        .replace(/:$/, "")
+        .trim();
+    } else if (trimmed.startsWith(">")) {
+      inQuote = true;
+      sections.quote = sections.quote
+        ? `${sections.quote}\n${trimmed}`
+        : trimmed;
+    } else if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
+      inQuote = false;
+      // Split multiple bullet points if they're on the same line
+      const bulletPoints = trimmed.split(/(?=\s*[•-])/);
+      bulletPoints.forEach((point) => {
+        if (point.trim()) {
+          sections.followUp.push(point.trim().replace(/^[•-]\s*/, "• "));
+        }
+      });
+    } else if (
+      trimmed &&
+      !inQuote &&
+      currentSection === "topic" &&
+      !sections.answer
+    ) {
+      sections.answer = trimmed;
+    }
+  }
+
+  // Format response with proper markdown
+  let formattedResponse = `### ${sections.topic || "Functions"}
+${sections.answer || "Let me explain this concept"}
+
+${
+  sections.quote
+    ? sections.quote
+    : `> **From the lesson:**\n> This concept helps make your code more organized and efficient`
+}
+
+Would you like to:
+${
+  sections.followUp.length > 0
+    ? sections.followUp.join("\n")
+    : `• See a practical example?\n• Learn more about specific use cases?\n• Explore how this applies to your code?`
+}`;
+
+  // Ensure proper spacing between sections and bullet points
+  formattedResponse = formattedResponse
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/([•-].*?)([•-])/g, "$1\n$2")
+    .replace(/Would you like to:\n?([^•\n])/g, "Would you like to:\n$1");
+
+  return formattedResponse;
+}
+
 export async function POST(req: NextRequest) {
   console.log("📨 Received chat request");
 
@@ -39,24 +122,17 @@ export async function POST(req: NextRequest) {
       ...messages,
     ];
 
-    console.log("🤖 Sending request to Ollama:", {
-      model: "llama3",
-      messageCount: messagesWithSystem.length,
-      firstMessageRole: messagesWithSystem[0].role,
-    });
+    console.log("🤖 Sending request to Ollama");
 
-    const ollamaRes = await fetch(
-      "http://localhost:11434/v1/chat/completions",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "llama3",
-          messages: messagesWithSystem,
-          stream: false,
-        }),
-      }
-    );
+    const ollamaRes = await fetch("http://localhost:11434/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama2",
+        messages: messagesWithSystem,
+        stream: false,
+      }),
+    });
 
     if (!ollamaRes.ok) {
       const errorText = await ollamaRes.text();
@@ -71,22 +147,28 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await ollamaRes.json();
-    const aiMessage = data.choices?.[0]?.message;
-
     console.log("✅ Received AI response:", {
-      messageRole: aiMessage?.role,
-      messageLength: aiMessage?.content?.length,
+      messageRole: data.message?.role,
+      messageLength: data.message?.content?.length,
     });
+
+    // Ensure proper markdown formatting
+    const formattedContent = ensureMarkdownFormatting(
+      data.message?.content || ""
+    );
+
+    const aiMessage = {
+      role: "assistant",
+      content: formattedContent,
+    };
 
     return NextResponse.json({ aiMessage });
   } catch (err) {
     console.error("❌ AI Chat Error:", err);
 
-    // Determine if it's a known error type
     const errorMessage =
       err instanceof Error ? err.message : "Unknown error occurred";
 
-    // Check if it's a connection error
     const isConnectionError =
       errorMessage.includes("fetch failed") ||
       errorMessage.includes("ECONNREFUSED");
@@ -94,10 +176,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         aiMessage: {
-          role: "ai",
+          role: "assistant",
           content: isConnectionError
-            ? "Unable to connect to AI service. Please check if the Ollama server is running."
-            : "Error contacting AI service. Please try again.",
+            ? "### Error\nUnable to connect to AI service. Please check if the Ollama server is running."
+            : "### Error\nError contacting AI service. Please try again.",
         },
       },
       { status: isConnectionError ? 503 : 500 }
