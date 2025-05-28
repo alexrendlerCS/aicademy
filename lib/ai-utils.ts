@@ -90,7 +90,7 @@ YOUR RESPONSE MUST FOLLOW THIS EXACT FORMAT:
 ### [Topic/Concept Name]
 [Direct, clear answer to the question]
 
-> **From the lesson:**
+   > **From the lesson:**
 > [Relevant quote from lesson content that helps explain the concept]
 
 Would you like to:

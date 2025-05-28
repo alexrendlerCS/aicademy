@@ -1,8 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
+import { useState } from "react";
+import { DemoModal } from "@/components/demo-modal";
 
 export default function Home() {
+  const [showDemoModal, setShowDemoModal] = useState(false);
+
   return (
     <div className="flex min-h-screen flex-col items-center w-full">
       <header className="w-full px-4 lg:px-6 h-14 flex items-center justify-between max-w-7xl mx-auto">
@@ -38,12 +44,13 @@ export default function Home() {
               <div className="flex flex-col justify-center space-y-4">
                 <div className="space-y-2">
                   <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none">
-                    AI-Assisted Learning for K-12 Classrooms
+                    AI-Enhanced Learning for the Modern Classroom
                   </h1>
                   <p className="max-w-[600px] text-muted-foreground md:text-xl">
-                    Empower teachers and engage students with our interactive
-                    learning platform. Create custom modules, track progress,
-                    and leverage AI assistance.
+                    Transform education with our innovative AI learning
+                    platform. Empower educators and students to harness AI for
+                    deeper understanding, critical thinking, and personalized
+                    learning experiences.
                   </p>
                 </div>
                 <div className="flex flex-col gap-4">
@@ -58,8 +65,16 @@ export default function Home() {
                         Student Login
                       </Button>
                     </Link>
+                    <Button
+                      size="lg"
+                      variant="secondary"
+                      onClick={() => setShowDemoModal(true)}
+                      className="w-full"
+                    >
+                      Try Demo
+                    </Button>
                   </div>
-                  <div className="text-left text-sm text-muted-foreground">
+                  <div className="text-sm text-muted-foreground">
                     Don't have an account?{" "}
                     <Link
                       href="/signup"
@@ -94,147 +109,137 @@ export default function Home() {
                   Platform Features
                 </h2>
                 <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                  Our platform offers a comprehensive set of tools for both
-                  teachers and students.
+                  Our platform offers comprehensive tools for educators and
+                  learners across all academic levels.
                 </p>
               </div>
             </div>
-            <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 py-12 md:grid-cols-2 lg:grid-cols-3">
-              <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <GraduationCap className="h-6 w-6" />
+            <div className="flex flex-col gap-6 py-12">
+              <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <GraduationCap className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-xl font-bold">Adaptive Learning Paths</h3>
+                  <p className="text-center text-muted-foreground">
+                    Personalized learning experiences that adapt to each
+                    student's level and learning style, ensuring optimal
+                    educational outcomes.
+                  </p>
                 </div>
-
-                <h3 className="text-xl font-bold">Custom Modules</h3>
-                <div className="font-medium">Teacher: Ms. Johnson</div>
-                <div className="text-sm text-muted-foreground">3 Modules</div>
+                <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-6 w-6"
+                    >
+                      <path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z" />
+                      <path d="M10 2c1 .5 2 2 2 5" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold">
+                    AI-Powered Learning Assistant
+                  </h3>
+                  <p className="text-center text-muted-foreground">
+                    Intelligent AI assistance that promotes critical thinking
+                    and deeper understanding, while teaching responsible AI
+                    usage in academic settings.
+                  </p>
+                </div>
+                <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-6 w-6"
+                    >
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold">Progress Tracking</h3>
+                  <p className="text-center text-muted-foreground">
+                    Monitor student progress with detailed analytics and
+                    performance metrics.
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-6 w-6"
-                  >
-                    <path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z" />
-                    <path d="M10 2c1 .5 2 2 2 5" />
-                  </svg>
+              <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-2">
+                <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-6 w-6"
+                    >
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold">Gamification</h3>
+                  <p className="text-center text-muted-foreground">
+                    Engage students with XP, levels, and achievements to make
+                    learning fun and rewarding.
+                  </p>
                 </div>
-                <h3 className="text-xl font-bold">AI Assistance</h3>
-                <p className="text-center text-muted-foreground">
-                  Get help from our AI assistant to answer questions and provide
-                  additional explanations.
-                </p>
-              </div>
-              <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-6 w-6"
-                  >
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                  </svg>
+                <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-6 w-6"
+                    >
+                      <rect width="18" height="18" x="3" y="3" rx="2" />
+                      <path d="M7 7h10" />
+                      <path d="M7 12h10" />
+                      <path d="M7 17h10" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold">Customizable Content</h3>
+                  <p className="text-center text-muted-foreground">
+                    Create rich content with text, images, videos, and
+                    interactive elements.
+                  </p>
                 </div>
-                <h3 className="text-xl font-bold">Progress Tracking</h3>
-                <p className="text-center text-muted-foreground">
-                  Monitor student progress with detailed analytics and
-                  performance metrics.
-                </p>
-              </div>
-              <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-6 w-6"
-                  >
-                    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold">Gamification</h3>
-                <p className="text-center text-muted-foreground">
-                  Engage students with XP, levels, and achievements to make
-                  learning fun and rewarding.
-                </p>
-              </div>
-              <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-6 w-6"
-                  >
-                    <rect width="18" height="18" x="3" y="3" rx="2" />
-                    <path d="M7 7h10" />
-                    <path d="M7 12h10" />
-                    <path d="M7 17h10" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold">Customizable Content</h3>
-                <p className="text-center text-muted-foreground">
-                  Create rich content with text, images, videos, and interactive
-                  elements.
-                </p>
-              </div>
-              <div className="flex flex-col items-center space-y-2 rounded-lg border p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-6 w-6"
-                  >
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold">Collaborative Learning</h3>
-                <p className="text-center text-muted-foreground">
-                  Enable students to work together on projects and share their
-                  progress.
-                </p>
               </div>
             </div>
           </div>
         </section>
       </main>
+      <DemoModal
+        isOpen={showDemoModal}
+        onClose={() => setShowDemoModal(false)}
+      />
       <footer className="w-full border-t">
         <div className="max-w-7xl mx-auto flex flex-col gap-2 sm:flex-row py-6 items-center px-4 md:px-6">
           <p className="text-xs text-muted-foreground">
