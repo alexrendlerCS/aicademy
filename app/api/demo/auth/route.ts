@@ -187,43 +187,55 @@ export async function POST(request: Request) {
 
     // Create a new session
     console.log("Creating session for user ID:", userId);
-    const sessionResponse = await supabaseAdmin.auth.admin.createSession(userId);
+    
+    // Generate a sign-in link instead of directly creating a session
+    const { data: signInData, error: signInError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: email,
+    });
 
-    if (sessionResponse.error) {
-      console.error("Error creating session:", {
-        message: sessionResponse.error.message,
-        details: sessionResponse.error
+    if (signInError) {
+      console.error("Error generating sign-in link:", {
+        message: signInError.message,
+        details: signInError
       });
       return NextResponse.json({ 
-        error: "Failed to create session",
-        details: sessionResponse.error.message 
+        error: "Failed to generate sign-in",
+        details: signInError.message 
       }, { status: 500 });
     }
 
-    if (!sessionResponse.data.session) {
-      console.error("No session data returned");
+    // Use the sign-in link to create a session
+    const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.signInWithPassword({
+      email: email,
+      password: "demo123",
+    });
+
+    if (sessionError) {
+      console.error("Error signing in:", {
+        message: sessionError.message,
+        details: sessionError
+      });
       return NextResponse.json({ 
-        error: "Invalid session response" 
+        error: "Failed to sign in",
+        details: sessionError.message 
       }, { status: 500 });
     }
 
-    console.log("Session created successfully");
+    // Return the session data
     return NextResponse.json({
-      success: true,
-      session: sessionResponse.data.session,
+      session: sessionData.session,
+      user: {
+        id: userId,
+        email,
+        role,
+      },
     });
   } catch (error: any) {
-    console.error("Demo auth error:", {
-      message: error.message,
-      stack: error.stack,
-      details: error
-    });
-    return NextResponse.json(
-      { 
-        error: error.message || "Internal server error",
-        details: error.message 
-      },
-      { status: 500 }
-    );
+    console.error("Demo auth error:", error);
+    return NextResponse.json({ 
+      error: "Internal server error", 
+      details: error 
+    }, { status: 500 });
   }
 }
