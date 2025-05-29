@@ -305,7 +305,7 @@ export default function ModuleView({
       <div key={question.id} className="space-y-4">
         <div className="flex items-start gap-2">
           <span className="font-medium">Q{index + 1}.</span>
-          <span>{question.text}</span>
+          <span>{question.question}</span>
         </div>
 
         {question.type === "multiple_choice" ? (

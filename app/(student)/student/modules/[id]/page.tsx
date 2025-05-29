@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import ModuleView from "./module-view";
+import ModuleView from "@/app/(student)/student/modules/[id]/module-view";
 
 export default function ModulePage() {
   const params = useParams();
@@ -209,10 +209,12 @@ export default function ModulePage() {
             ...lesson,
             quiz_questions: lesson.quiz_questions.map((question: any) => ({
               ...question,
-              // Parse options if stored as string
+              // Handle options in both array and string formats
               options: Array.isArray(question.options)
                 ? question.options
-                : JSON.parse(question.options || "[]"),
+                : typeof question.options === "string"
+                ? JSON.parse(question.options || "[]")
+                : [],
               // Add student's attempt if it exists
               attempt: quizAttempts?.find(
                 (a: any) => a.question_id === question.id
