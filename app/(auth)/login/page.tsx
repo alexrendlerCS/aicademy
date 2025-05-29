@@ -3,7 +3,7 @@
 import type React from "react";
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { GraduationCap, Mail, Lock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,18 +19,29 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/lib/supabaseClient";
-import { useSearchParams } from "next/navigation";
 
-function LoginForm() {
+// Separate component for the form that uses searchParams
+function LoginFormWithParams() {
+  const searchParams = useSearchParams();
+  const emailError = searchParams.get("error") === "email_not_confirmed";
+  const intendedRole = searchParams.get("role");
+  return <LoginForm emailError={emailError} intendedRole={intendedRole} />;
+}
+
+// Main form component that receives params as props
+function LoginForm({
+  emailError,
+  intendedRole,
+}: {
+  emailError: boolean;
+  intendedRole: string | null;
+}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const searchParams = useSearchParams();
-  const emailError = searchParams.get("error") === "email_not_confirmed";
-  const intendedRole = searchParams.get("role");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -277,7 +288,7 @@ export default function LoginPage() {
         </div>
       }
     >
-      <LoginForm />
+      <LoginFormWithParams />
     </Suspense>
   );
 }
