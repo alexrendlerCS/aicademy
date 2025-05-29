@@ -1,30 +1,37 @@
 // app/(auth)/complete-profile/page.tsx
-"use client"
+"use client";
 
-import { useSearchParams, useRouter } from "next/navigation"
-import { useState } from "react"
-import { supabase } from "@/lib/supabaseClient"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-export default function CompleteProfile() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const id = searchParams.get("id")
-  const email = searchParams.get("email")
+function ProfileForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
+  const email = searchParams.get("email");
 
-  const [fullName, setFullName] = useState("")
-  const [role, setRole] = useState<"student" | "teacher" | "">("")
-  const [gradeLevel, setGradeLevel] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState<"student" | "teacher" | "">("");
+  const [gradeLevel, setGradeLevel] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const handleComplete = async () => {
     if (!id || !fullName || !role) {
-      setError("Please fill in all fields")
-      return
+      setError("Please fill in all fields");
+      return;
     }
 
     const { error: insertError } = await supabase.from("users").insert({
@@ -33,14 +40,14 @@ export default function CompleteProfile() {
       full_name: fullName,
       role,
       grade_level: role === "student" ? gradeLevel : null,
-    })
+    });
 
     if (insertError) {
-      setError("Failed to complete profile")
+      setError("Failed to complete profile");
     } else {
-      router.push(role === "teacher" ? "/teacher" : "/student")
+      router.push(role === "teacher" ? "/teacher" : "/student");
     }
-  }
+  };
 
   return (
     <div className="container flex h-screen w-screen flex-col items-center justify-center">
@@ -52,12 +59,20 @@ export default function CompleteProfile() {
         <div className="space-y-4">
           <div>
             <Label htmlFor="fullName">Full Name</Label>
-            <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <Input
+              id="fullName"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+            />
           </div>
 
           <div>
             <Label>Role</Label>
-            <RadioGroup value={role} onValueChange={(val) => setRole(val as any)} className="flex gap-4">
+            <RadioGroup
+              value={role}
+              onValueChange={(val) => setRole(val as any)}
+              className="flex gap-4"
+            >
               <RadioGroupItem value="student" id="student" />
               <Label htmlFor="student">Student</Label>
               <RadioGroupItem value="teacher" id="teacher" />
@@ -73,8 +88,24 @@ export default function CompleteProfile() {
                   <SelectValue placeholder="Select grade" />
                 </SelectTrigger>
                 <SelectContent>
-                  {["k","1","2","3","4","5","6","7","8","9","10","11","12"].map((g) => (
-                    <SelectItem key={g} value={g}>{g === "k" ? "Kindergarten" : `${g}th Grade`}</SelectItem>
+                  {[
+                    "k",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6",
+                    "7",
+                    "8",
+                    "9",
+                    "10",
+                    "11",
+                    "12",
+                  ].map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {g === "k" ? "Kindergarten" : `${g}th Grade`}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -87,5 +118,19 @@ export default function CompleteProfile() {
         </div>
       </div>
     </div>
-  )
+  );
+}
+
+export default function CompleteProfile() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container flex h-screen w-screen flex-col items-center justify-center">
+          <div className="text-center">Loading...</div>
+        </div>
+      }
+    >
+      <ProfileForm />
+    </Suspense>
+  );
 }
