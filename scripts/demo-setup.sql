@@ -19,24 +19,27 @@ BEGIN
             email := 'demo.teacher@aicademy.edu',
             password := 'demo123',
             email_confirmed := true,
-            raw_user_meta_data := '{"role": "teacher"}'::jsonb
-        );
-        
-        -- Create Demo Teacher in public.users
-        INSERT INTO public.users (
-            id,
-            full_name,
-            email,
-            role,
-            created_at
-        ) VALUES (
-            demo_teacher_uuid,
-            'Demo Teacher',
-            'demo.teacher@aicademy.edu',
-            'teacher',
-            NOW()
+            raw_user_meta_data := '{"role": "teacher", "full_name": "Demo Teacher"}'::jsonb
         );
     END IF;
+
+    -- Ensure Demo Teacher exists in public.users
+    INSERT INTO public.users (
+        id,
+        full_name,
+        email,
+        role,
+        created_at
+    ) VALUES (
+        demo_teacher_uuid,
+        'Demo Teacher',
+        'demo.teacher@aicademy.edu',
+        'teacher',
+        NOW()
+    ) ON CONFLICT (id) DO UPDATE SET
+        full_name = EXCLUDED.full_name,
+        email = EXCLUDED.email,
+        role = EXCLUDED.role;
 
     -- Create Demo Student in auth.users using Supabase auth function
     SELECT id INTO demo_student_uuid FROM auth.users 
@@ -50,29 +53,48 @@ BEGIN
             email := 'demo.student@aicademy.edu',
             password := 'demo123',
             email_confirmed := true,
-            raw_user_meta_data := '{"role": "student"}'::jsonb
-        );
-        
-        -- Create Demo Student in public.users
-        INSERT INTO public.users (
-            id,
-            full_name,
-            email,
-            role,
-            grade_level,
-            created_at
-        ) VALUES (
-            demo_student_uuid,
-            'Demo Student',
-            'demo.student@aicademy.edu',
-            'student',
-            '11',
-            NOW()
+            raw_user_meta_data := '{"role": "student", "full_name": "Demo Student", "grade_level": "11"}'::jsonb
         );
     END IF;
 
-    -- Create class memberships for demo student in existing classes
-    -- Using Introduction to Programming 2025 class
+    -- Ensure Demo Student exists in public.users
+    INSERT INTO public.users (
+        id,
+        full_name,
+        email,
+        role,
+        grade_level,
+        created_at
+    ) VALUES (
+        demo_student_uuid,
+        'Demo Student',
+        'demo.student@aicademy.edu',
+        'student',
+        '11',
+        NOW()
+    ) ON CONFLICT (id) DO UPDATE SET
+        full_name = EXCLUDED.full_name,
+        email = EXCLUDED.email,
+        role = EXCLUDED.role,
+        grade_level = EXCLUDED.grade_level;
+
+    -- Create a demo class
+    demo_class_uuid := gen_random_uuid();
+    INSERT INTO public.classes (
+        id,
+        name,
+        code,
+        teacher_id,
+        created_at
+    ) VALUES (
+        demo_class_uuid,
+        'Introduction to AI',
+        'DEMOAI101',
+        demo_teacher_uuid,
+        NOW()
+    ) ON CONFLICT (id) DO NOTHING;
+
+    -- Create class membership for demo student
     INSERT INTO public.class_memberships (
         id,
         class_id,
@@ -81,74 +103,11 @@ BEGIN
         joined_at
     ) VALUES (
         gen_random_uuid(),
-        'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+        demo_class_uuid,
         demo_student_uuid,
         'approved',
         NOW()
-    ) ON CONFLICT (class_id, student_id) DO NOTHING;
-
-    -- Create lesson progress for the demo student
-    -- Using existing lessons from the programming module
-    INSERT INTO public.lesson_progress (
-        id,
-        student_id,
-        lesson_id,
-        completed,
-        completed_at,
-        xp_earned
-    )
-    SELECT 
-        gen_random_uuid(),
-        demo_student_uuid,
-        id,
-        TRUE,
-        NOW(),
-        100
-    FROM public.lessons 
-    WHERE module_id = 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12'
-    LIMIT 3
-    ON CONFLICT (student_id, lesson_id) 
-    DO UPDATE SET 
-        completed = EXCLUDED.completed,
-        completed_at = EXCLUDED.completed_at,
-        xp_earned = EXCLUDED.xp_earned;
-
-    -- Create student module assignments
-    INSERT INTO public.student_modules (
-        id,
-        student_id,
-        module_id,
-        assigned_by,
-        assigned_at,
-        completed_at
-    )
-    SELECT
-        gen_random_uuid(),
-        demo_student_uuid,
-        id,
-        demo_teacher_uuid,
-        NOW(),
-        CASE WHEN random() > 0.5 THEN NOW() ELSE NULL END
-    FROM public.modules
-    WHERE subject = 'science'
-    LIMIT 3
-    ON CONFLICT (student_id, module_id) 
-    DO UPDATE SET 
-        assigned_by = EXCLUDED.assigned_by,
-        assigned_at = EXCLUDED.assigned_at,
-        completed_at = EXCLUDED.completed_at;
-
-    -- Create a demo class
-    demo_class_uuid := gen_random_uuid();
-    INSERT INTO public.classes (
-        id,
-        name,
-        code
-    ) VALUES (
-        demo_class_uuid,
-        'Introduction to AI',
-        'DEMOAI'
-    );
+    ) ON CONFLICT (id) DO NOTHING;
 
     -- Create a demo module
     demo_module_uuid := gen_random_uuid();
@@ -157,14 +116,16 @@ BEGIN
         title,
         description,
         subject,
-        teacher_id
+        teacher_id,
+        created_at
     ) VALUES (
         demo_module_uuid,
         'Getting Started with AI',
-        'Introduction to artificial intelligence concepts',
+        'Introduction to artificial intelligence concepts and applications',
         'Computer Science',
-        demo_teacher_uuid
-    );
+        demo_teacher_uuid,
+        NOW()
+    ) ON CONFLICT (id) DO NOTHING;
 
     -- Create module assignment
     INSERT INTO public.module_assignments (
@@ -172,61 +133,87 @@ BEGIN
         module_id,
         class_id,
         assigned_by,
-        assigned_at
+        assigned_at,
+        due_date
     ) VALUES (
         gen_random_uuid(),
         demo_module_uuid,
         demo_class_uuid,
         demo_teacher_uuid,
-        NOW()
-    );
+        NOW(),
+        NOW() + interval '7 days'
+    ) ON CONFLICT (id) DO NOTHING;
 
-    -- Create a demo lesson
-    demo_lesson_uuid := gen_random_uuid();
-    INSERT INTO public.lessons (
-        id,
-        module_id,
-        title,
-        content,
-        order_index
-    ) VALUES (
-        demo_lesson_uuid,
-        demo_module_uuid,
-        'Understanding AI Basics',
-        'This lesson covers the fundamental concepts of artificial intelligence.',
-        1
-    );
+    -- Create demo lessons
+    FOR i IN 1..3 LOOP
+        demo_lesson_uuid := gen_random_uuid();
+        INSERT INTO public.lessons (
+            id,
+            module_id,
+            title,
+            content,
+            order_index
+        ) VALUES (
+            demo_lesson_uuid,
+            demo_module_uuid,
+            CASE i
+                WHEN 1 THEN 'Understanding AI Basics'
+                WHEN 2 THEN 'Machine Learning Fundamentals'
+                WHEN 3 THEN 'Neural Networks Introduction'
+            END,
+            CASE i
+                WHEN 1 THEN 'This lesson covers the fundamental concepts of artificial intelligence.'
+                WHEN 2 THEN 'Learn about different types of machine learning algorithms.'
+                WHEN 3 THEN 'Discover how neural networks mimic human brain function.'
+            END,
+            i
+        ) ON CONFLICT (id) DO NOTHING;
 
-    -- Add lesson progress for the demo student
-    INSERT INTO public.lesson_progress (
-        id,
-        student_id,
-        lesson_id,
-        completed,
-        xp_earned
-    ) VALUES (
-        gen_random_uuid(),
-        demo_student_uuid,
-        demo_lesson_uuid,
-        true,
-        100
-    );
+        -- Add lesson progress for the demo student
+        INSERT INTO public.lesson_progress (
+            id,
+            student_id,
+            lesson_id,
+            completed,
+            completed_at,
+            xp_earned
+        ) VALUES (
+            gen_random_uuid(),
+            demo_student_uuid,
+            demo_lesson_uuid,
+            i < 3, -- First two lessons completed
+            CASE WHEN i < 3 THEN NOW() ELSE NULL END,
+            CASE WHEN i < 3 THEN 100 ELSE NULL END
+        ) ON CONFLICT (id) DO NOTHING;
 
-    -- Add a quiz question
-    INSERT INTO public.quiz_questions (
-        id,
-        lesson_id,
-        question,
-        type,
-        options,
-        correct_index
-    ) VALUES (
-        gen_random_uuid(),
-        demo_lesson_uuid,
-        'What is artificial intelligence?',
-        'multiple_choice',
-        ARRAY['A computer program that can think', 'The simulation of human intelligence by machines', 'A robot', 'A database system'],
-        1
-    );
+        -- Add quiz questions
+        INSERT INTO public.quiz_questions (
+            id,
+            lesson_id,
+            question,
+            type,
+            options,
+            correct_index
+        ) VALUES (
+            gen_random_uuid(),
+            demo_lesson_uuid,
+            CASE i
+                WHEN 1 THEN 'What is artificial intelligence?'
+                WHEN 2 THEN 'Which is NOT a type of machine learning?'
+                WHEN 3 THEN 'What is a neural network modeled after?'
+            END,
+            'multiple_choice',
+            CASE i
+                WHEN 1 THEN '["A computer program that can think", "The simulation of human intelligence by machines", "A robot", "A database system"]'::jsonb
+                WHEN 2 THEN '["Supervised learning", "Unsupervised learning", "Manual learning", "Reinforcement learning"]'::jsonb
+                WHEN 3 THEN '["The human brain", "A computer processor", "A database", "A calculator"]'::jsonb
+            END,
+            CASE i
+                WHEN 1 THEN 1
+                WHEN 2 THEN 2
+                WHEN 3 THEN 0
+            END
+        ) ON CONFLICT (id) DO NOTHING;
+    END LOOP;
 
 END $$; 

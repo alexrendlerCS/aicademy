@@ -29,6 +29,7 @@ export default function StudentDashboard() {
     }>
   >([]);
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch class progress
   const fetchClassProgress = async (userId: string) => {
@@ -140,105 +141,136 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
-      // Get user
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
-      setUser(userData.user);
-      const userId = userData.user.id;
+      try {
+        setLoading(true);
+        // Get user
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData?.user) {
+          console.error("No user found");
+          setLoading(false);
+          return;
+        }
 
-      // Fetch class progress
-      await fetchClassProgress(userId);
+        setUser(userData.user);
+        const userId = userData.user.id;
 
-      // Fetch classes with teacher name
-      const { data: classes, error } = await supabase
-        .from("classes")
-        .select(
+        // Fetch class progress
+        await fetchClassProgress(userId);
+
+        // Fetch classes with teacher name
+        const { data: classes, error } = await supabase
+          .from("classes")
+          .select(
+            `
+            *,
+            users!classes_teacher_id_fkey (
+              full_name
+            ),
+            class_memberships!inner(status)
           `
-          *,
-          users!classes_teacher_id_fkey (
-            full_name
-          ),
-          class_memberships!inner(status)
-        `
-        )
-        .eq("class_memberships.student_id", user.id);
+          )
+          .eq("class_memberships.student_id", userId);
 
-      if (error) {
-        console.error("Error fetching classes:", error);
-        throw error;
+        if (error) {
+          console.error("Error fetching classes:", error);
+          throw error;
+        }
+
+        console.log("Raw classes data:", classes);
+
+        // For each class, fetch module count
+        const classesWithModules = await Promise.all(
+          (classes || []).map(async (cls) => {
+            console.log("Processing class:", cls);
+            console.log("Teacher data:", cls.users);
+            // Count modules assigned to this class
+            const { count: moduleCount } = await supabase
+              .from("module_assignments")
+              .select("id", { count: "exact", head: true })
+              .eq("class_id", cls.id);
+
+            const classData = {
+              ...cls,
+              membership: cls.class_memberships[0],
+              teacherName: cls.users?.full_name || "Unknown Teacher",
+              moduleCount: moduleCount || 0,
+            };
+
+            console.log("Processed class data:", classData);
+            return classData;
+          })
+        );
+
+        // Get progress for each module
+        const modulesWithProgress = await Promise.all(
+          (classesWithModules || []).map(async (cls) => {
+            // First get all module assignments for this class
+            const { data: moduleAssignments } = await supabase
+              .from("module_assignments")
+              .select("*, modules(*)")
+              .eq("class_id", cls.id);
+
+            // Map each module assignment to include progress
+            const modulePromises = (moduleAssignments || []).map(
+              async (assignment) => {
+                const { data: progress } = await supabase
+                  .from("student_modules")
+                  .select("completed_at, progress")
+                  .eq("module_id", assignment.module_id)
+                  .eq("student_id", userId)
+                  .single();
+
+                return {
+                  ...assignment.modules,
+                  class: cls,
+                  progress: progress || { completed_at: null, progress: 0 },
+                  due_date: cls.membership?.due_date || null,
+                  lessonCount: assignment.modules?.lessons?.length || 0,
+                };
+              }
+            );
+
+            return Promise.all(modulePromises);
+          })
+        );
+
+        // Flatten the array of arrays into a single array of modules
+        const flattenedModules = modulesWithProgress.flat();
+        setModules(flattenedModules);
+
+        // Get XP and level (from user profile or progress)
+        const { data: userProfile } = await supabase
+          .from("users")
+          .select("xp, level")
+          .eq("id", userId)
+          .single();
+        setXp(userProfile?.xp || 0);
+        setLevel(userProfile?.level || 1);
+
+        // Get achievements
+        const { data: userAchievements } = await supabase
+          .from("user_achievements")
+          .select("*, achievement:achievements(*)")
+          .eq("student_id", userId);
+        setAchievements(userAchievements || []);
+
+        // DEBUG: Log all module assignments and modules
+        const { data: debugAssignments } = await supabase
+          .from("module_assignments")
+          .select("*");
+        console.log("allAssignments", debugAssignments);
+        const { data: debugModules } = await supabase
+          .from("modules")
+          .select("*");
+        console.log("allModules", debugModules);
+      } catch (error) {
+        console.error("Error in fetchData:", error);
+        setError(error instanceof Error ? error.message : "An error occurred");
+      } finally {
+        setLoading(false);
       }
-
-      console.log("Raw classes data:", classes);
-
-      // For each class, fetch module count
-      const classesWithModules = await Promise.all(
-        (classes || []).map(async (cls) => {
-          console.log("Processing class:", cls);
-          console.log("Teacher data:", cls.users);
-          // Count modules assigned to this class
-          const { count: moduleCount } = await supabase
-            .from("module_assignments")
-            .select("id", { count: "exact", head: true })
-            .eq("class_id", cls.id);
-
-          const classData = {
-            ...cls,
-            membership: cls.class_memberships[0],
-            teacherName: cls.users?.full_name || "Unknown Teacher",
-            moduleCount: moduleCount || 0,
-          };
-
-          console.log("Processed class data:", classData);
-          return classData;
-        })
-      );
-
-      // Get progress for each module
-      const modulesWithProgress = await Promise.all(
-        (classesWithModules || []).map(async (cls) => {
-          const { data: progress } = await supabase
-            .from("student_modules")
-            .select("completed_at, progress")
-            .eq("module_id", cls.id)
-            .eq("student_id", userId)
-            .single();
-          return {
-            ...cls,
-            progress: progress || { completed_at: null, progress: 0 },
-            due_date: cls.membership?.due_date || null,
-            lessonCount: cls.lessons ? cls.lessons.length : 0,
-          };
-        })
-      );
-      setModules(modulesWithProgress);
-
-      // Get XP and level (from user profile or progress)
-      const { data: userProfile } = await supabase
-        .from("users")
-        .select("xp, level")
-        .eq("id", userId)
-        .single();
-      setXp(userProfile?.xp || 0);
-      setLevel(userProfile?.level || 1);
-
-      // Get achievements
-      const { data: userAchievements } = await supabase
-        .from("user_achievements")
-        .select("*, achievement:achievements(*)")
-        .eq("student_id", userId);
-      setAchievements(userAchievements || []);
-
-      // DEBUG: Log all module assignments and modules
-      const { data: allAssignments } = await supabase
-        .from("module_assignments")
-        .select("*");
-      console.log("allAssignments", allAssignments);
-      const { data: allModules } = await supabase.from("modules").select("*");
-      console.log("allModules", allModules);
-
-      setLoading(false);
     };
+
     fetchData();
   }, []);
 

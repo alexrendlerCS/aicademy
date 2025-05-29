@@ -7,16 +7,19 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { loginAsDemo } from "@/lib/demo-auth";
 import { useRouter } from "next/navigation";
 import { School, GraduationCap } from "lucide-react";
 
-export function DemoModal() {
+interface DemoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function DemoModal({ isOpen, onClose }: DemoModalProps) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,9 +34,14 @@ export function DemoModal() {
         throw new Error(result.error || "Failed to login as demo user");
       }
 
-      setIsOpen(false);
-      // Refresh the page to update the UI with the new session
-      router.refresh();
+      onClose();
+
+      // Redirect to the regular dashboards
+      if (role === "teacher") {
+        router.push("/teacher");
+      } else {
+        router.push("/student");
+      }
     } catch (error: any) {
       console.error("Demo login error:", error);
       setError(error.message || "An unexpected error occurred");
@@ -43,12 +51,7 @@ export function DemoModal() {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="w-full sm:w-auto">
-          Try Demo
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Try a Demo Account</DialogTitle>

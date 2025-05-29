@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import ModuleView from "./module-view";
+import ModuleView from "@/components/module-view";
 
 export default function ModulePage() {
   const params = useParams();

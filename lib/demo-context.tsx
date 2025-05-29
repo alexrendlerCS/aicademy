@@ -28,12 +28,18 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (
-        user?.email?.includes("demo.") &&
-        user.email.includes("@aicademy.edu")
-      ) {
+
+      // Check for static demo emails
+      const isDemoUser =
+        user?.email === "demo.student@aicademy.edu" ||
+        user?.email === "demo.teacher@aicademy.edu";
+
+      if (isDemoUser) {
         setIsDemo(true);
         setDemoRole(user.user_metadata.role as "student" | "teacher");
+      } else {
+        setIsDemo(false);
+        setDemoRole(null);
       }
     };
 
@@ -45,10 +51,12 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN") {
         const user = session?.user;
-        if (
-          user?.email?.includes("demo.") &&
-          user.email.includes("@aicademy.edu")
-        ) {
+        // Check for static demo emails
+        const isDemoUser =
+          user?.email === "demo.student@aicademy.edu" ||
+          user?.email === "demo.teacher@aicademy.edu";
+
+        if (isDemoUser) {
           setIsDemo(true);
           setDemoRole(user.user_metadata.role as "student" | "teacher");
         } else {

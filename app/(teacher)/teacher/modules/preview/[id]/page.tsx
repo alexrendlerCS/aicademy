@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import ModuleView from "@/app/(student)/student/modules/[id]/module-view";
+import ModuleView from "@/components/module-view";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
@@ -22,7 +22,13 @@ export default function ModulePreviewPage() {
           .select(
             `
             *,
-            lessons(*)
+            lessons(
+              *,
+              quiz_questions(
+                *,
+                quiz_options(*)
+              )
+            )
           `
           )
           .eq("id", params.id)
@@ -33,7 +39,20 @@ export default function ModulePreviewPage() {
           return;
         }
 
-        setModule(moduleData);
+        // Process quiz options into the expected format
+        const processedModule = {
+          ...moduleData,
+          lessons: moduleData.lessons?.map((lesson: any) => ({
+            ...lesson,
+            quiz_questions: lesson.quiz_questions?.map((question: any) => ({
+              ...question,
+              options:
+                question.quiz_options?.map((opt: any) => opt.option_text) || [],
+            })),
+          })),
+        };
+
+        setModule(processedModule);
       } catch (error) {
         console.error("Error:", error);
       } finally {
@@ -45,11 +64,23 @@ export default function ModulePreviewPage() {
   }, [params.id]);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
   }
 
   if (!module) {
-    return <div>Module not found</div>;
+    return (
+      <div className="container mx-auto py-6">
+        <div className="text-center py-8 text-muted-foreground">
+          Module not found
+        </div>
+      </div>
+    );
   }
 
   return (

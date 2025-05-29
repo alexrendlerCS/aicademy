@@ -92,7 +92,7 @@ BEGIN
       full_name = p_full_name,
       role = p_role,
       grade_level = p_grade_level
-    WHERE email = p_email;
+    WHERE id = v_existing_user.id;
   END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER; 

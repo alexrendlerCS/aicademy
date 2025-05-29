@@ -4,7 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import ModuleView from "@/app/(student)/student/modules/[id]/module-view";
+import ModuleView from "@/components/module-view";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -36,8 +36,11 @@ export function ModulePreviewDialog({
             lessons(
               *,
               quiz_questions(
-                *,
-                quiz_options(*)
+                id,
+                question,
+                type,
+                options,
+                correct_index
               )
             )
           `
@@ -50,15 +53,17 @@ export function ModulePreviewDialog({
           return;
         }
 
-        // Process quiz options into the expected format
+        // Process the module data
         const processedModule = {
           ...moduleData,
           lessons: moduleData.lessons?.map((lesson: any) => ({
             ...lesson,
             quiz_questions: lesson.quiz_questions?.map((question: any) => ({
               ...question,
-              options:
-                question.quiz_options?.map((opt: any) => opt.option_text) || [],
+              // Parse options if stored as string
+              options: Array.isArray(question.options)
+                ? question.options
+                : JSON.parse(question.options || "[]"),
             })),
           })),
         };

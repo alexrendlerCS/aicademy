@@ -6,6 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Users, Mail, Check, X, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 function generateClassCode() {
   // Simple random code generator (6 alphanumeric chars)
@@ -18,6 +28,7 @@ export default function TeacherClasses() {
   const [error, setError] = useState<string | null>(null);
   const [newClassName, setNewClassName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [memberships, setMemberships] = useState<Record<string, any[]>>({});
   const [studentEmail, setStudentEmail] = useState("");
   const [addingStudentClassId, setAddingStudentClassId] = useState<
@@ -86,6 +97,7 @@ export default function TeacherClasses() {
       });
       if (insertError) throw new Error("Failed to create class.");
       setNewClassName("");
+      setIsCreateModalOpen(false);
     } catch (err: any) {
       setError(err.message || "An error occurred while creating class.");
     } finally {
@@ -152,14 +164,50 @@ export default function TeacherClasses() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button
-            onClick={handleCreateClass}
-            disabled={creating}
-            className="w-full sm:w-auto"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {creating ? "Creating..." : "Create Class"}
-          </Button>
+          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+            <DialogTrigger asChild>
+              <Button className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Class
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Class</DialogTitle>
+                <DialogDescription>
+                  Enter a name for your new class. A unique class code will be
+                  generated automatically.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="className">Class Name</Label>
+                  <Input
+                    id="className"
+                    value={newClassName}
+                    onChange={(e) => setNewClassName(e.target.value)}
+                    placeholder="Enter class name..."
+                  />
+                </div>
+                {error && <div className="text-red-500 text-sm">{error}</div>}
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsCreateModalOpen(false);
+                    setError(null);
+                    setNewClassName("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateClass} disabled={creating}>
+                  {creating ? "Creating..." : "Create Class"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       <div className="flex flex-col sm:flex-row gap-4 mb-2">
