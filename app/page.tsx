@@ -56,22 +56,47 @@ export default function Home() {
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2 min-[400px]:flex-row">
                     <Link href="/login?role=teacher">
-                      <Button size="lg" className="w-full">
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="w-full border-orange-500 hover:bg-orange-50 hover:text-orange-600 transition-colors duration-200"
+                      >
                         Teacher Login
                       </Button>
                     </Link>
                     <Link href="/login?role=student">
-                      <Button size="lg" variant="outline" className="w-full">
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="w-full border-orange-500 hover:bg-orange-50 hover:text-orange-600 transition-colors duration-200"
+                      >
                         Student Login
                       </Button>
                     </Link>
                     <Button
                       size="lg"
-                      variant="secondary"
                       onClick={() => setShowDemoModal(true)}
-                      className="w-full"
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 font-semibold relative overflow-hidden group"
                     >
-                      Try Demo
+                      <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-orange-400 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+                      <span className="relative flex items-center justify-center gap-2">
+                        Try Demo
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="animate-pulse"
+                        >
+                          <path d="M5 12h14" />
+                          <path d="m12 5 7 7-7 7" />
+                        </svg>
+                      </span>
                     </Button>
                   </div>
                   <div className="text-sm text-muted-foreground">

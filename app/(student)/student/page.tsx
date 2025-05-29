@@ -12,6 +12,45 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { SubjectIcon } from "@/components/subject-icon";
 
+interface QuizAttempt {
+  selected_index: number | null;
+  answer_text: string | null;
+}
+
+interface QuizQuestion {
+  id: string;
+  type: string;
+  attempt: QuizAttempt[];
+}
+
+interface Lesson {
+  id: string;
+  quiz_questions: QuizQuestion[];
+}
+
+interface Module {
+  id: string;
+  lessons: Lesson[];
+}
+
+interface ModuleAssignment {
+  module_id: string;
+  modules: {
+    id: string;
+    lessons: {
+      id: string;
+      quiz_questions: {
+        id: string;
+        type: string;
+        attempt: {
+          selected_index: number | null;
+          answer_text: string | null;
+        }[];
+      }[];
+    }[];
+  };
+}
+
 export default function StudentDashboard() {
   const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +96,25 @@ export default function StudentDashboard() {
         // Get all module assignments for this class
         const { data: moduleAssignments } = await supabase
           .from("module_assignments")
-          .select("module_id")
+          .select(
+            `
+            module_id,
+            modules (
+              id,
+              lessons (
+                id,
+                quiz_questions (
+                  id,
+                  type,
+                  attempt:quiz_attempts (
+                    selected_index,
+                    answer_text
+                  )
+                )
+              )
+            )
+          `
+          )
           .eq("class_id", cls.id);
 
         if (!moduleAssignments?.length) {
@@ -70,65 +127,44 @@ export default function StudentDashboard() {
           };
         }
 
-        const moduleIds = moduleAssignments.map((ma) => ma.module_id);
+        let totalQuestions = 0;
+        let completedQuestions = 0;
 
-        // Get all lessons with their quiz questions for these modules
-        const { data: lessonsWithQuizzes } = await supabase
-          .from("lessons")
-          .select(
-            `
-            id,
-            module_id,
-            quiz_questions (
-              id
-            )
-          `
-          )
-          .in("module_id", moduleIds);
+        // Calculate total questions and completed questions across all modules
+        moduleAssignments.forEach((assignment) => {
+          assignment.modules?.lessons?.forEach((lesson) => {
+            if (lesson.quiz_questions) {
+              lesson.quiz_questions.forEach((question) => {
+                totalQuestions++;
+                if (question.attempt?.length > 0) {
+                  const attempt = question.attempt[0];
+                  if (
+                    (attempt.selected_index !== null &&
+                      attempt.selected_index !== undefined) ||
+                    (attempt.answer_text &&
+                      attempt.answer_text.trim().length > 0)
+                  ) {
+                    completedQuestions++;
+                  }
+                }
+              });
+            }
+          });
+        });
 
-        // Filter to only lessons that have quiz questions
-        const quizLessons = (lessonsWithQuizzes || []).filter(
-          (lesson) => lesson.quiz_questions && lesson.quiz_questions.length > 0
-        );
-
-        if (!quizLessons.length) {
-          return {
-            id: cls.id,
-            name: cls.name,
-            progress: 0,
-            totalQuizzes: 0,
-            completedQuizzes: 0,
-          };
-        }
-
-        // Get lesson progress for this student
-        const { data: lessonProgress } = await supabase
-          .from("lesson_progress")
-          .select("*")
-          .eq("student_id", userId)
-          .in(
-            "lesson_id",
-            quizLessons.map((l) => l.id)
-          )
-          .eq("completed", true);
-
-        const totalQuizzes = quizLessons.length;
-        const completedCount = lessonProgress?.length || 0;
         const progress =
-          totalQuizzes > 0 ? (completedCount / totalQuizzes) * 100 : 0;
+          totalQuestions > 0 ? (completedQuestions / totalQuestions) * 100 : 0;
 
         return {
           id: cls.id,
           name: cls.name,
           progress,
-          totalQuizzes,
-          completedQuizzes: completedCount,
+          totalQuizzes: totalQuestions,
+          completedQuizzes: completedQuestions,
         };
       });
 
       const classProgressData = await Promise.all(progressPromises);
-
-      // Add some debug logging
       console.log("Class Progress Data:", classProgressData);
 
       setClassProgress(
@@ -207,23 +243,48 @@ export default function StudentDashboard() {
             // First get all module assignments for this class
             const { data: moduleAssignments } = await supabase
               .from("module_assignments")
-              .select("*, modules(*, lessons(id))")
+              .select(
+                "*, modules(*, lessons(*, quiz_questions(id, attempt:quiz_attempts(selected_index, answer_text))))"
+              )
               .eq("class_id", cls.id);
 
             // Map each module assignment to include progress
             const modulePromises = (moduleAssignments || []).map(
               async (assignment) => {
-                const { data: progress } = await supabase
-                  .from("student_modules")
-                  .select("completed_at, progress")
-                  .eq("module_id", assignment.module_id)
-                  .eq("student_id", userId)
-                  .single();
+                // Calculate progress based on completed questions
+                let totalQuestions = 0;
+                let completedQuestions = 0;
+
+                assignment.modules?.lessons?.forEach((lesson) => {
+                  if (lesson.quiz_questions) {
+                    totalQuestions += lesson.quiz_questions.length;
+                    lesson.quiz_questions.forEach((question) => {
+                      if (question.attempt?.length > 0) {
+                        const attempt = question.attempt[0];
+                        if (
+                          (attempt.selected_index !== null &&
+                            attempt.selected_index !== undefined) ||
+                          (attempt.answer_text &&
+                            attempt.answer_text.trim().length > 0)
+                        ) {
+                          completedQuestions++;
+                        }
+                      }
+                    });
+                  }
+                });
+
+                const progress =
+                  totalQuestions > 0 ? completedQuestions / totalQuestions : 0;
+                const isCompleted = progress === 1;
 
                 return {
                   ...assignment.modules,
                   class: cls,
-                  progress: progress || { completed_at: null, progress: 0 },
+                  progress: {
+                    completed_at: isCompleted ? new Date().toISOString() : null,
+                    progress: progress,
+                  },
                   due_date: assignment.due_date || null,
                   lessonCount: assignment.modules?.lessons?.length || 0,
                 };
@@ -418,8 +479,8 @@ export default function StudentDashboard() {
                         {cls.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {cls.completedQuizzes} of {cls.totalQuizzes} quizzes
-                        completed
+                        {cls.completedQuizzes} of {cls.totalQuizzes} quiz
+                        questions completed
                       </p>
                     </div>
                     <div className="font-medium text-sm">

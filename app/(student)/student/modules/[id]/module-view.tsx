@@ -12,16 +12,27 @@ import {
   Clock,
   Bot,
   MessageCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { SubjectIcon } from "@/components/subject-icon";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { cn, isDemoUser } from "@/lib/utils";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Textarea } from "@/components/ui/textarea";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ModuleViewProps {
   module: any;
@@ -50,6 +61,7 @@ export default function ModuleView({
     {}
   );
   const [submitting, setSubmitting] = useState(false);
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
 
   // Add new state variables for chat
   const [chatOpen, setChatOpen] = useState(false);
@@ -91,16 +103,67 @@ export default function ModuleView({
   const collapsedBtnRef = useRef<HTMLButtonElement>(null);
   const [collapsedDragOffset, setCollapsedDragOffset] = useState(0);
 
-  const progress = isPreview
-    ? previewData?.progress || 0
-    : module.progress?.progress || 0;
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const isDemo = isDemoUser(currentUser?.id);
+
+  // Calculate total questions and completed questions
+  const calculateProgress = () => {
+    if (isPreview) return previewData?.progress || 0;
+
+    let totalQuestions = 0;
+    let completedQuestions = 0;
+
+    module.lessons?.forEach((lesson: any) => {
+      if (lesson.quiz_questions) {
+        totalQuestions += lesson.quiz_questions.length;
+        lesson.quiz_questions.forEach((question: any) => {
+          // Count question as completed if it has been attempted
+          if (question.attempt) {
+            if (question.type === "multiple_choice") {
+              // For multiple choice, count as completed if any answer was selected
+              if (typeof question.attempt.selected_index === "number") {
+                completedQuestions++;
+              }
+            } else if (question.type === "free_response") {
+              // For free response, count as completed if there's an answer text
+              if (question.attempt.answer_text?.trim()) {
+                completedQuestions++;
+              }
+            }
+          }
+        });
+      }
+    });
+
+    return totalQuestions > 0 ? completedQuestions / totalQuestions : 0;
+  };
+
+  const progress = calculateProgress();
+  const totalQuestions =
+    module.lessons?.reduce(
+      (total: number, lesson: any) =>
+        total + (lesson.quiz_questions?.length || 0),
+      0
+    ) || 0;
+  const completedQuestions = Math.round(progress * totalQuestions);
 
   const currentLessonIndex =
     module.lessons?.findIndex((l: any) => l.id === selectedLesson?.id) || 0;
   const totalLessons = module.lessons?.length || 0;
 
+  // Add user data fetch
+  useEffect(() => {
+    const fetchUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
+
   const handleAnswerSelect = (questionId: string, answerIndex: number) => {
-    if (isPreview) return;
+    if (isPreview || isDemo) return;
     setSelectedAnswers((prev) => ({
       ...prev,
       [questionId]: answerIndex,
@@ -108,7 +171,7 @@ export default function ModuleView({
   };
 
   const handleFreeResponseChange = (questionId: string, text: string) => {
-    if (isPreview) return;
+    if (isPreview || isDemo) return;
     setFreeResponses((prev) => ({
       ...prev,
       [questionId]: text,
@@ -179,6 +242,7 @@ export default function ModuleView({
       console.error("Error submitting quiz:", error);
     } finally {
       setSubmitting(false);
+      setShowSubmitDialog(false);
     }
   };
 
@@ -209,119 +273,92 @@ export default function ModuleView({
     });
   };
 
+  // Add function to check if a lesson is completed
+  const isLessonCompleted = (lesson: any) => {
+    if (!lesson.quiz_questions?.length) return false;
+
+    return lesson.quiz_questions.every((question: any) => {
+      if (!question.attempt) return false;
+
+      if (question.type === "multiple_choice") {
+        return typeof question.attempt.selected_index === "number";
+      } else {
+        return !!question.attempt.answer_text?.trim();
+      }
+    });
+  };
+
   const renderQuestion = (question: any, index: number) => {
     const questionState = getQuestionState(question);
     const isAttempted = questionState !== "unattempted";
     const isCorrect = questionState === "correct";
     const isPending = questionState === "pending";
+    const showCorrect = isAttempted;
+    const isSelected = (i: number) =>
+      typeof selectedAnswers[question.id] === "number"
+        ? selectedAnswers[question.id] === i
+        : false;
 
     return (
       <div key={question.id} className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium">
-            Question {index + 1}: {question.question}
-          </h3>
-          {isAttempted && (
-            <Badge
-              variant={
-                isCorrect ? "default" : isPending ? "outline" : "destructive"
-              }
-            >
-              {isCorrect ? (
-                <CheckCircle className="h-3 w-3 mr-1" />
-              ) : isPending ? (
-                <Clock className="h-3 w-3 mr-1" />
-              ) : (
-                <X className="h-3 w-3 mr-1" />
-              )}
-              {isCorrect
-                ? "Correct"
-                : isPending
-                ? "Pending Review"
-                : "Incorrect"}
-            </Badge>
-          )}
+        <div className="flex items-start gap-2">
+          <span className="font-medium">Q{index + 1}.</span>
+          <span>{question.text}</span>
         </div>
 
         {question.type === "multiple_choice" ? (
-          <div className="space-y-2">
-            {question.options?.map((option: string, i: number) => {
-              const isSelected =
-                selectedAnswers[question.id] === i ||
-                question.attempt?.selected_index === i;
-              const showCorrect = isAttempted && i === question.correct_index;
-
-              return (
+          <div className="space-y-2 pl-6">
+            {question.options.map((option: string, i: number) => (
+              <div
+                key={i}
+                className={cn(
+                  "flex items-center gap-3 p-3 rounded-lg border transition-all",
+                  !isAttempted &&
+                    !isDemo &&
+                    !isSelected(i) &&
+                    "hover:bg-muted/50 cursor-pointer",
+                  isSelected(i) &&
+                    !isAttempted &&
+                    "bg-orange-50 border-orange-500 border-2",
+                  isDemo && "cursor-not-allowed opacity-70"
+                )}
+                onClick={() =>
+                  !isAttempted && handleAnswerSelect(question.id, i)
+                }
+              >
                 <div
-                  key={i}
                   className={cn(
-                    "flex items-center gap-3 p-3 rounded-lg border",
-                    !isAttempted && "hover:bg-muted cursor-pointer",
-                    isSelected && "bg-muted",
-                    showCorrect && "border-green-500",
-                    isSelected &&
-                      !showCorrect &&
-                      isAttempted &&
-                      "border-red-500"
+                    "flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm",
+                    showCorrect
+                      ? "border-green-500 text-green-500"
+                      : isSelected(i) && isAttempted
+                      ? "border-red-500 text-red-500"
+                      : isSelected(i) && !isAttempted
+                      ? "border-orange-500 text-orange-500"
+                      : "border-muted-foreground text-muted-foreground"
                   )}
-                  onClick={() =>
-                    !isAttempted && handleAnswerSelect(question.id, i)
-                  }
                 >
-                  <div
-                    className={cn(
-                      "w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm",
-                      showCorrect
-                        ? "border-green-500 text-green-500"
-                        : isSelected && isAttempted
-                        ? "border-red-500 text-red-500"
-                        : "border-primary text-primary"
-                    )}
-                  >
-                    {String.fromCharCode(65 + i)}
-                  </div>
-                  <span>{option}</span>
+                  {String.fromCharCode(65 + i)}
                 </div>
-              );
-            })}
+                <span className="flex-1">{option}</span>
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="pl-6">
             <Textarea
-              placeholder="Type your answer here..."
-              value={
-                freeResponses[question.id] ||
-                question.attempt?.answer_text ||
-                ""
-              }
+              value={freeResponses[question.id] || ""}
               onChange={(e) =>
                 handleFreeResponseChange(question.id, e.target.value)
               }
-              disabled={isAttempted}
-              className={cn(
-                "min-h-[100px]",
-                isAttempted &&
-                  (isCorrect
-                    ? "border-green-500"
-                    : isPending
-                    ? "border-yellow-500"
-                    : "border-red-500")
-              )}
+              disabled={isAttempted || isDemo}
+              className={cn(isDemo && "cursor-not-allowed opacity-70")}
+              placeholder={
+                isDemo
+                  ? "Demo users cannot submit answers"
+                  : "Type your answer here..."
+              }
             />
-            {isAttempted && question.attempt?.feedback && (
-              <div
-                className={cn(
-                  "text-sm p-2 rounded",
-                  isCorrect
-                    ? "bg-green-50 text-green-700"
-                    : isPending
-                    ? "bg-yellow-50 text-yellow-700"
-                    : "bg-red-50 text-red-700"
-                )}
-              >
-                <strong>Feedback:</strong> {question.attempt.feedback}
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -505,16 +542,24 @@ export default function ModuleView({
     <div className="flex flex-col h-full">
       {/* Breadcrumb and Progress */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link href="/student" className="hover:text-foreground">
-            Dashboard
-          </Link>
-          <span>/</span>
-          <Link href="/student/modules" className="hover:text-foreground">
-            Modules
-          </Link>
-          <span>/</span>
-          <span className="text-foreground">{module.title}</span>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" asChild className="mr-2">
+            <Link href="/student">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Back to Dashboard</span>
+            </Link>
+          </Button>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/student" className="hover:text-foreground">
+              Dashboard
+            </Link>
+            <span>/</span>
+            <Link href="/student/modules" className="hover:text-foreground">
+              Modules
+            </Link>
+            <span>/</span>
+            <span className="text-foreground">{module.title}</span>
+          </div>
         </div>
       </div>
 
@@ -525,7 +570,8 @@ export default function ModuleView({
             Lesson {currentLessonIndex + 1} of {totalLessons}
           </span>
           <span className="text-sm text-muted-foreground">
-            Progress {Math.round(progress * 100)}%
+            Progress: {completedQuestions} of {totalQuestions} questions (
+            {Math.round(progress * 100)}%)
           </span>
         </div>
         <Progress value={progress * 100} max={100} />
@@ -541,20 +587,31 @@ export default function ModuleView({
             <div className="p-2">
               {module.lessons?.map((lesson: any, index: number) => {
                 const hasQuiz = lesson.quiz_questions?.length > 0;
-                const quizCompleted = hasQuiz && lesson.progress?.completed;
+                const isCompleted = hasQuiz && isLessonCompleted(lesson);
 
                 return (
                   <button
                     key={lesson.id}
                     onClick={() => setSelectedLesson(lesson)}
                     className={cn(
-                      "w-full text-left px-4 py-3 rounded-lg hover:bg-muted",
+                      "w-full text-left px-4 py-3 rounded-lg hover:bg-muted group",
                       selectedLesson?.id === lesson.id && "bg-muted"
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm">
-                        {index + 1}
+                      <div
+                        className={cn(
+                          "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm",
+                          isCompleted
+                            ? "bg-green-100 text-green-700"
+                            : "bg-primary/10 text-primary"
+                        )}
+                      >
+                        {isCompleted ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : (
+                          <span>{index + 1}</span>
+                        )}
                       </div>
                       <div>
                         <div className="font-medium">{lesson.title}</div>
@@ -564,8 +621,8 @@ export default function ModuleView({
                             : "No quiz"}
                         </div>
                       </div>
-                      {quizCompleted && (
-                        <CheckCircle className="ml-auto h-4 w-4 text-green-500" />
+                      {isCompleted && (
+                        <CheckCircle className="ml-auto h-4 w-4 text-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                       )}
                     </div>
                   </button>
@@ -577,7 +634,11 @@ export default function ModuleView({
 
         {/* Main Content */}
         <div className="space-y-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-[800px]"
+          >
             <TabsList>
               <TabsTrigger value="lesson">Lesson</TabsTrigger>
               <TabsTrigger
@@ -597,7 +658,7 @@ export default function ModuleView({
                   {selectedLesson?.title}
                 </h1>
                 <div
-                  className="prose dark:prose-invert max-w-none"
+                  className="prose dark:prose-invert"
                   dangerouslySetInnerHTML={{ __html: selectedLesson?.content }}
                 />
               </Card>
@@ -606,6 +667,14 @@ export default function ModuleView({
             <TabsContent value="quiz" className="mt-4">
               <Card className="p-6">
                 <h2 className="text-xl font-semibold mb-6">Lesson Quiz</h2>
+                {isDemo && (
+                  <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                    <p className="text-orange-800">
+                      This is a demo account. Quiz submissions are disabled, but
+                      you can still view the questions.
+                    </p>
+                  </div>
+                )}
                 {selectedLesson?.quiz_questions?.length ? (
                   <div className="space-y-8">
                     {selectedLesson.quiz_questions.map(
@@ -615,8 +684,10 @@ export default function ModuleView({
                     <div className="flex justify-end">
                       <Button
                         size="lg"
-                        onClick={handleQuizSubmit}
-                        disabled={isPreview || submitting || !isQuizComplete()}
+                        onClick={() => setShowSubmitDialog(true)}
+                        disabled={
+                          isPreview || submitting || !isQuizComplete() || isDemo
+                        }
                       >
                         {submitting ? "Submitting..." : "Submit Quiz"}
                       </Button>
@@ -927,6 +998,26 @@ export default function ModuleView({
           </div>
         </div>
       )}
+
+      {/* Add the AlertDialog */}
+      <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Submit Quiz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to submit this quiz? This action cannot be
+              undone, and you won't be able to change your answers after
+              submission.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleQuizSubmit} disabled={submitting}>
+              {submitting ? "Submitting..." : "Submit Quiz"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

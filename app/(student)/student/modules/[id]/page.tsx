@@ -79,13 +79,30 @@ export default function ModulePage() {
           return;
         }
 
+        // Ensure module data exists
+        if (!moduleData) {
+          console.error("Module data not found");
+          return;
+        }
+
         // Ensure student_modules entry exists
-        const { data: existingProgress } = await supabase
-          .from("student_modules")
-          .select("*")
-          .eq("student_id", userData.user.id)
-          .eq("module_id", params.id)
-          .single();
+        const { data: existingProgress, error: progressCheckError } =
+          await supabase
+            .from("student_modules")
+            .select("*")
+            .eq("student_id", userData.user.id)
+            .eq("module_id", params.id)
+            .single();
+
+        if (progressCheckError && progressCheckError.code !== "PGRST116") {
+          console.error("Error checking progress:", {
+            error: progressCheckError,
+            details: progressCheckError.details,
+            message: progressCheckError.message,
+            code: progressCheckError.code,
+          });
+          return;
+        }
 
         if (!existingProgress) {
           const { error: progressError } = await supabase
@@ -95,10 +112,18 @@ export default function ModulePage() {
               module_id: params.id,
               progress: 0,
               completed_at: null,
+              started_at: new Date().toISOString(), // Add started_at timestamp
             });
 
           if (progressError) {
-            console.error("Error creating progress entry:", progressError);
+            console.error("Error creating progress entry:", {
+              error: progressError,
+              details: progressError.details,
+              message: progressError.message,
+              hint: progressError.hint,
+              code: progressError.code,
+            });
+            // Don't return here, continue with the rest of the module loading
           }
         }
 

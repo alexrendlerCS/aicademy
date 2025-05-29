@@ -192,7 +192,9 @@ export default function EditModulePage({
               quizQuestions: [
                 ...lesson.quizQuestions,
                 {
-                  id: undefined,
+                  id: `new-${Date.now()}-${Math.random()
+                    .toString(36)
+                    .substr(2, 9)}`,
                   question: "",
                   type: "multiple_choice",
                   options: ["", "", "", ""],
@@ -367,7 +369,8 @@ export default function EditModulePage({
         }
         // Handle quiz questions
         for (const question of lesson.quizQuestions) {
-          if (question.id) {
+          const isNewQuestion = question.id.startsWith("new-");
+          if (!isNewQuestion) {
             // Update existing question
             const { error: questionError } = await supabase
               .from("quiz_questions")
@@ -602,49 +605,57 @@ export default function EditModulePage({
               <div>
                 <Label>Assign to Individual Students</Label>
                 <div className="flex flex-col gap-3 mt-2">
-                  {Object.entries(studentsByClass).map(([classId, students]) =>
-                    students.map((student) =>
-                      student ? (
-                        <div
-                          key={student.id}
-                          className="flex items-center gap-4 p-2 bg-muted/30 rounded"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedStudentIds.includes(student.id)}
-                            onChange={(e) => {
-                              setSelectedStudentIds((ids) =>
-                                e.target.checked
-                                  ? [...ids, student.id]
-                                  : ids.filter((id) => id !== student.id)
-                              );
-                            }}
-                          />
-                          <span className="font-medium">
-                            {student.full_name || student.email}
-                          </span>
-                          {selectedStudentIds.includes(student.id) && (
-                            <div className="flex items-center gap-2 ml-4">
-                              <Label htmlFor={`due-date-student-${student.id}`}>
-                                Due Date
-                              </Label>
-                              <Input
-                                id={`due-date-student-${student.id}`}
-                                type="datetime-local"
-                                className="w-56"
-                                value={studentDueDates[student.id] || ""}
-                                onChange={(e) =>
-                                  setStudentDueDates((prev) => ({
-                                    ...prev,
-                                    [student.id]: e.target.value,
-                                  }))
-                                }
-                                placeholder="Due date"
+                  {Object.entries(studentsByClass).map(
+                    ([classId, students]) => (
+                      <div key={classId} className="space-y-2">
+                        {students.map((student) =>
+                          student ? (
+                            <div
+                              key={`${classId}-${student.id}`}
+                              className="flex items-center gap-4 p-2 bg-muted/30 rounded"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedStudentIds.includes(
+                                  student.id
+                                )}
+                                onChange={(e) => {
+                                  setSelectedStudentIds((ids) =>
+                                    e.target.checked
+                                      ? [...ids, student.id]
+                                      : ids.filter((id) => id !== student.id)
+                                  );
+                                }}
                               />
+                              <span className="font-medium">
+                                {student.full_name || student.email}
+                              </span>
+                              {selectedStudentIds.includes(student.id) && (
+                                <div className="flex items-center gap-2 ml-4">
+                                  <Label
+                                    htmlFor={`due-date-student-${student.id}`}
+                                  >
+                                    Due Date
+                                  </Label>
+                                  <Input
+                                    id={`due-date-student-${student.id}`}
+                                    type="datetime-local"
+                                    className="w-56"
+                                    value={studentDueDates[student.id] || ""}
+                                    onChange={(e) =>
+                                      setStudentDueDates((prev) => ({
+                                        ...prev,
+                                        [student.id]: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Due date"
+                                  />
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      ) : null
+                          ) : null
+                        )}
+                      </div>
                     )
                   )}
                   {Object.values(studentsByClass).flat().length === 0 && (
