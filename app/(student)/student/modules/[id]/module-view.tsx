@@ -50,6 +50,7 @@ export default function ModuleView({
   isPreview = false,
   previewData,
 }: ModuleViewProps) {
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("lesson");
   const [selectedLesson, setSelectedLesson] = useState<any>(
     module.lessons?.[0] || null
@@ -79,9 +80,14 @@ export default function ModuleView({
   // Chat window size constants and state
   const MIN_CHAT_WIDTH = 320;
   const MIN_CHAT_HEIGHT = 320;
-  const MAX_CHAT_WIDTH = 600;
-  const MAX_CHAT_HEIGHT = 700;
-  const [chatSize, setChatSize] = useState({ width: 400, height: 420 });
+  const MAX_CHAT_WIDTH = 800;
+  const MAX_CHAT_HEIGHT = 800;
+  const DEFAULT_CHAT_WIDTH = 600;
+  const DEFAULT_CHAT_HEIGHT = 600;
+  const [chatSize, setChatSize] = useState({
+    width: DEFAULT_CHAT_WIDTH,
+    height: DEFAULT_CHAT_HEIGHT,
+  });
   const [resizing, setResizing] = useState(false);
   const resizeStart = useRef<{
     x: number;
@@ -103,7 +109,6 @@ export default function ModuleView({
   const collapsedBtnRef = useRef<HTMLButtonElement>(null);
   const [collapsedDragOffset, setCollapsedDragOffset] = useState(0);
 
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const isDemo = isDemoUser(currentUser?.id);
 
   // Calculate total questions and completed questions
@@ -151,16 +156,50 @@ export default function ModuleView({
     module.lessons?.findIndex((l: any) => l.id === selectedLesson?.id) || 0;
   const totalLessons = module.lessons?.length || 0;
 
-  // Add user data fetch
+  const [showDemoNotice, setShowDemoNotice] = useState(false);
+
+  // Add user data fetch and initialize demo messages if needed
   useEffect(() => {
     const fetchUser = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       setCurrentUser(user);
+
+      // Initialize demo messages after we have the user
+      if (isDemoUser(user?.id)) {
+        setChatMessages([
+          {
+            role: "user",
+            content:
+              "What is the main benefit of using functions in your code?",
+          },
+          {
+            role: "assistant",
+            content: `### Functions
+
+Functions are like cookbook recipes, allowing you to organize and simplify your code by packaging it into reusable blocks. They make your code more maintainable and efficient by enabling you to reuse code without duplicating it. By breaking down complex tasks into smaller, manageable functions, you can avoid code repetition and improve the overall readability of your program.
+
+From the lesson: Functions are like smart little robots that perform specific tasks whenever we call them. They help us hide complex details and focus only on what the function does.
+
+Would you like to:
+
+• Learn how to create a new function for a common task?
+• Understand the importance of giving functions descriptive names?
+• Explore best practices for writing clean, maintainable code?`,
+          },
+        ]);
+      }
     };
     fetchUser();
   }, []);
+
+  // Show demo notice when chat is opened in demo mode
+  useEffect(() => {
+    if (chatOpen && isDemo) {
+      setShowDemoNotice(true);
+    }
+  }, [chatOpen, isDemo]);
 
   const handleAnswerSelect = (questionId: string, answerIndex: number) => {
     if (isPreview || isDemo) return;
@@ -398,13 +437,35 @@ export default function ModuleView({
     }
   }, [chatMessages, chatOpen]);
 
-  // Set initial chat position
+  // Set initial chat position centered on screen
   useEffect(() => {
-    setChatPos({
-      x: window.innerWidth / 2 - 320,
-      y: window.innerHeight - 440,
-    });
+    if (typeof window !== "undefined") {
+      const centerX = Math.max(
+        SIDEBAR_WIDTH,
+        (window.innerWidth - DEFAULT_CHAT_WIDTH) / 2
+      );
+      const centerY = Math.max(
+        0,
+        (window.innerHeight - DEFAULT_CHAT_HEIGHT) / 2
+      );
+      setChatPos({ x: centerX, y: centerY });
+    }
   }, []);
+
+  // Add window resize handler to keep chat in bounds
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== "undefined") {
+        setChatPos((prev) => ({
+          x: Math.min(prev.x, window.innerWidth - chatSize.width),
+          y: Math.min(prev.y, window.innerHeight - chatSize.height),
+        }));
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [chatSize]);
 
   // Handle collapsed button drag
   useEffect(() => {
@@ -473,6 +534,7 @@ export default function ModuleView({
   // Handle chat window resize
   useEffect(() => {
     if (!resizing) return;
+
     const handleMove = (e: MouseEvent | TouchEvent) => {
       let clientX = 0,
         clientY = 0;
@@ -483,6 +545,7 @@ export default function ModuleView({
         clientX = e.clientX;
         clientY = e.clientY;
       }
+
       if (resizeStart.current) {
         const newWidth = Math.max(
           MIN_CHAT_WIDTH,
@@ -498,14 +561,24 @@ export default function ModuleView({
             resizeStart.current.height + (clientY - resizeStart.current.y)
           )
         );
-        setChatSize({ width: newWidth, height: newHeight });
+
+        // Use requestAnimationFrame for smooth resizing
+        requestAnimationFrame(() => {
+          setChatSize({ width: newWidth, height: newHeight });
+        });
       }
     };
-    const handleUp = () => setResizing(false);
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("touchmove", handleMove);
+
+    const handleUp = () => {
+      setResizing(false);
+      resizeStart.current = null;
+    };
+
+    window.addEventListener("mousemove", handleMove, { passive: true });
+    window.addEventListener("touchmove", handleMove, { passive: true });
     window.addEventListener("mouseup", handleUp);
     window.addEventListener("touchend", handleUp);
+
     return () => {
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("touchmove", handleMove);
@@ -517,6 +590,32 @@ export default function ModuleView({
   const handleSendChat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
+
+    // For demo users, show a message about demo mode
+    if (isDemo) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "user", content: chatInput },
+        {
+          role: "assistant",
+          content: `### Demo Mode
+
+This is a demo account. In the full version, you can interact with our AI tutor to:
+
+• Get help understanding concepts
+• Ask questions about the lesson
+• Get hints for quiz questions
+• Practice with additional examples
+• Receive step-by-step explanations
+
+Sign up for a full account to access the AI tutor!`,
+        },
+      ]);
+      setChatInput("");
+      return;
+    }
+
+    // Regular chat functionality for non-demo users
     const newMessages = [...chatMessages, { role: "user", content: chatInput }];
     setChatMessages(newMessages);
     setChatInput("");
@@ -788,9 +887,13 @@ export default function ModuleView({
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            transition: draggingChat ? "none" : "box-shadow 0.2s",
             cursor: draggingChat ? "grabbing" : "default",
             userSelect: resizing ? "none" : "auto",
+            // Only transition specific properties and disable during resize/drag
+            transition:
+              resizing || draggingChat
+                ? "none"
+                : "box-shadow 0.2s ease, border-color 0.2s ease, left 0.2s ease, top 0.2s ease",
           }}
         >
           <div
@@ -844,6 +947,19 @@ export default function ModuleView({
               minHeight: 120,
             }}
           >
+            {isDemo && chatMessages.length > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                <div className="flex items-center gap-2 font-medium mb-1">
+                  <Bot className="h-4 w-4" />
+                  Demo Mode Example
+                </div>
+                <p>
+                  You're seeing an example interaction with our AI tutor. In the
+                  full version, you can ask your own questions and get
+                  personalized help!
+                </p>
+              </div>
+            )}
             {chatMessages.length === 0 ? (
               <div className="text-muted-foreground text-center mt-8">
                 How can I help you with this module?
@@ -871,39 +987,52 @@ export default function ModuleView({
                           remarkPlugins={[remarkGfm]}
                           components={{
                             h3: ({ children }) => (
-                              <h3 className="text-[#f97316] font-semibold text-lg border-b border-orange-100 pb-2 mb-3 mt-4">
+                              <h3 className="text-[#f97316] font-semibold text-lg mb-4">
                                 {children}
                               </h3>
                             ),
-                            p: ({ children }) => (
-                              <p className="text-gray-700 text-sm leading-relaxed mb-3">
-                                {children}
-                              </p>
-                            ),
+                            p: ({ children, ...props }) => {
+                              // Check if this paragraph contains "From the lesson:" text
+                              const text = String(children);
+                              if (text.startsWith("From the lesson:")) {
+                                const [prefix, ...rest] =
+                                  text.split("From the lesson:");
+                                return (
+                                  <div className="my-4 p-4 bg-orange-50 border-l-4 border-orange-500 rounded-r-lg">
+                                    <span className="text-orange-600 font-medium">
+                                      From the lesson:
+                                    </span>
+                                    <span className="text-foreground">
+                                      {rest.join("")}
+                                    </span>
+                                  </div>
+                                );
+                              }
+                              // Check if this is the "Would you like to:" section
+                              if (text.startsWith("Would you like to:")) {
+                                return (
+                                  <div className="mb-4">
+                                    <p className="mb-2">
+                                      {text.split("Would you like to:")[0]}Would
+                                      you like to:
+                                    </p>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <p className="mb-4" {...props}>
+                                  {children}
+                                </p>
+                              );
+                            },
                             ul: ({ children }) => (
-                              <ul className="list-none space-y-2 mb-3 mt-2">
-                                {children}
-                              </ul>
+                              <ul className="space-y-2 mb-4">{children}</ul>
                             ),
                             li: ({ children }) => (
-                              <li className="flex items-start text-gray-700 text-sm mb-2">
-                                <span className="text-[#f97316] mr-2 flex-shrink-0 mt-0.5">
-                                  •
-                                </span>
-                                <span className="flex-1 whitespace-pre-line">
-                                  {children}
-                                </span>
+                              <li className="flex items-start pl-4">
+                                <span className="text-orange-500 mr-2">•</span>
+                                <span className="flex-1">{children}</span>
                               </li>
-                            ),
-                            blockquote: ({ children }) => (
-                              <blockquote className="bg-orange-50 rounded-lg px-4 py-2 my-3 border-l-4 border-[#f97316]">
-                                {children}
-                              </blockquote>
-                            ),
-                            strong: ({ children }) => (
-                              <strong className="font-semibold text-[#f97316]">
-                                {children}
-                              </strong>
                             ),
                           }}
                         >
@@ -984,6 +1113,7 @@ export default function ModuleView({
               justifyContent: "flex-end",
               background: "none",
               borderBottomRightRadius: 20,
+              touchAction: "none", // Prevent touch scrolling while resizing
             }}
             tabIndex={-1}
           >
@@ -1041,6 +1171,37 @@ export default function ModuleView({
             <AlertDialogAction onClick={handleQuizSubmit} disabled={submitting}>
               {submitting ? "Submitting..." : "Submit Quiz"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Demo Notice Dialog */}
+      <AlertDialog open={showDemoNotice} onOpenChange={setShowDemoNotice}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              Demo Mode Example
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div>
+                  You're seeing an example interaction with our AI tutor. This
+                  shows how the AI tutor can help explain programming concepts
+                  and guide your learning journey.
+                </div>
+                <div>In the full version, you can:</div>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>Ask your own questions about any topic</li>
+                  <li>Get personalized help with exercises</li>
+                  <li>Receive step-by-step explanations</li>
+                  <li>Practice with interactive examples</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Got it!</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
