@@ -295,7 +295,9 @@ export default function ModuleView({
     const isPending = questionState === "pending";
     const showCorrect = isAttempted;
     const isSelected = (i: number) =>
-      typeof selectedAnswers[question.id] === "number"
+      isAttempted
+        ? question.attempt?.selected_index === i
+        : typeof selectedAnswers[question.id] === "number"
         ? selectedAnswers[question.id] === i
         : false;
 
@@ -308,57 +310,81 @@ export default function ModuleView({
 
         {question.type === "multiple_choice" ? (
           <div className="space-y-2 pl-6">
-            {question.options.map((option: string, i: number) => (
-              <div
-                key={i}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border transition-all",
-                  !isAttempted &&
-                    !isDemo &&
-                    !isSelected(i) &&
-                    "hover:bg-muted/50 cursor-pointer",
-                  isSelected(i) &&
-                    !isAttempted &&
-                    "bg-orange-50 border-orange-500 border-2",
-                  isDemo && "cursor-not-allowed opacity-70"
-                )}
-                onClick={() =>
-                  !isAttempted && handleAnswerSelect(question.id, i)
-                }
-              >
+            {question.options.map((option: string, i: number) => {
+              const isCorrectAnswer = i === question.correct_index;
+              const isSelectedAnswer = isSelected(i);
+              const showAnswerStatus =
+                isAttempted && (isCorrectAnswer || isSelectedAnswer);
+
+              return (
                 <div
+                  key={i}
                   className={cn(
-                    "flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm",
-                    showCorrect
-                      ? "border-green-500 text-green-500"
-                      : isSelected(i) && isAttempted
-                      ? "border-red-500 text-red-500"
-                      : isSelected(i) && !isAttempted
-                      ? "border-orange-500 text-orange-500"
-                      : "border-muted-foreground text-muted-foreground"
+                    "flex items-center gap-3 p-3 rounded-lg border transition-all",
+                    !isAttempted &&
+                      !isDemo &&
+                      !isSelected(i) &&
+                      "hover:bg-muted/50 cursor-pointer",
+                    isSelected(i) &&
+                      !isAttempted &&
+                      "bg-orange-50 border-orange-500 border-2",
+                    showAnswerStatus &&
+                      isCorrectAnswer &&
+                      "bg-green-50 border-green-500",
+                    showAnswerStatus &&
+                      isSelectedAnswer &&
+                      !isCorrectAnswer &&
+                      "bg-red-50 border-red-500",
+                    isDemo && "cursor-not-allowed opacity-70"
                   )}
+                  onClick={() =>
+                    !isAttempted && handleAnswerSelect(question.id, i)
+                  }
                 >
-                  {String.fromCharCode(65 + i)}
+                  <div
+                    className={cn(
+                      "flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm",
+                      showAnswerStatus && isCorrectAnswer
+                        ? "border-green-500 text-green-500"
+                        : showAnswerStatus &&
+                          isSelectedAnswer &&
+                          !isCorrectAnswer
+                        ? "border-red-500 text-red-500"
+                        : isSelected(i) && !isAttempted
+                        ? "border-orange-500 text-orange-500"
+                        : "border-muted-foreground text-muted-foreground"
+                    )}
+                  >
+                    {String.fromCharCode(65 + i)}
+                  </div>
+                  <span className="flex-1">{option}</span>
                 </div>
-                <span className="flex-1">{option}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          <div className="pl-6">
-            <Textarea
-              value={freeResponses[question.id] || ""}
-              onChange={(e) =>
-                handleFreeResponseChange(question.id, e.target.value)
-              }
-              disabled={isAttempted || isDemo}
-              className={cn(isDemo && "cursor-not-allowed opacity-70")}
-              placeholder={
-                isDemo
-                  ? "Demo users cannot submit answers"
-                  : "Type your answer here..."
-              }
-            />
+          <div className="space-y-2 pl-6">
+            {isAttempted ? (
+              <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="font-medium mb-2">Your Answer:</div>
+                <div className="text-muted-foreground">
+                  {question.attempt?.answer_text}
+                </div>
+                <div className="mt-4 text-sm text-orange-600">
+                  Awaiting teacher's grading
+                </div>
+              </div>
+            ) : (
+              <Textarea
+                value={freeResponses[question.id] || ""}
+                onChange={(e) =>
+                  handleFreeResponseChange(question.id, e.target.value)
+                }
+                placeholder="Type your answer here..."
+                rows={4}
+                disabled={isDemo}
+              />
+            )}
           </div>
         )}
       </div>
