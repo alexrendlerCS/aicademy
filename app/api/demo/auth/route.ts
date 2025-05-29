@@ -3,18 +3,14 @@ import { NextResponse } from "next/server";
 
 // Validate environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
-// Enhanced environment and auth validation logging
-console.log("Supabase Configuration:", {
-  url: supabaseUrl?.substring(0, 12),
-  serviceKey: {
-    exists: !!supabaseServiceKey,
-    length: supabaseServiceKey?.length,
-    prefix: supabaseServiceKey?.substring(0, 6),
-    isServiceKey:
-      supabaseServiceKey?.startsWith("eyJ") && supabaseServiceKey?.length > 100,
-  },
+// Log environment variable status (without exposing actual values)
+console.log("Environment variables status:", {
+  hasUrl: !!supabaseUrl,
+  hasServiceKey: !!supabaseServiceKey,
+  urlPrefix: supabaseUrl?.substring(0, 8),
+  keyPrefix: supabaseServiceKey?.substring(0, 4)
 });
 
 if (!supabaseUrl || !supabaseServiceKey) {
@@ -22,15 +18,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
   throw new Error("Missing required environment variables");
 }
 
-// Validate service key format
-if (!supabaseServiceKey.startsWith("eyJ") || supabaseServiceKey.length < 100) {
-  console.error(
-    "Invalid service key format - ensure you're using the service_role key, not the anon key"
-  );
-  throw new Error("Invalid service key format");
-}
-
-// Create a Supabase admin client with the service role key
+// Create a Supabase client with the service role key
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
@@ -38,95 +26,19 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   },
 });
 
-// Test the admin client connection and permissions
+// Test the admin client connection
 async function testConnection() {
   try {
-    // Test admin API access specifically
     const { data, error } = await supabaseAdmin.auth.admin.listUsers();
-
     if (error) {
-      console.error("Failed to connect to Supabase:", {
-        error: error.message,
-        status: error.status,
-        statusText: error?.name,
-      });
+      console.error("Failed to connect to Supabase:", error);
       return false;
     }
-
-    console.log("Successfully connected to Supabase with admin privileges");
+    console.log("Successfully connected to Supabase");
     return true;
-  } catch (error: any) {
-    console.error("Error testing Supabase connection:", {
-      message: error.message,
-      name: error.name,
-      status: error?.status,
-      response: error?.response,
-    });
-    return false;
-  }
-}
-
-// Cleanup function that uses only admin API calls
-async function cleanupDemoAccounts() {
-  console.log("Starting demo account cleanup...");
-
-  try {
-    const {
-      data: { users },
-      error: getUserError,
-    } = await supabaseAdmin.auth.admin.listUsers();
-
-    if (getUserError) {
-      console.error("Error listing users during cleanup:", getUserError);
-      return;
-    }
-
-    const demoUsers = users.filter(
-      (u) => u.email?.includes("demo.") && u.email?.includes("@aicademy.edu")
-    );
-
-    console.log(
-      `Found ${demoUsers.length} demo users to clean up:`,
-      demoUsers.map((u) => ({ id: u.id, email: u.email }))
-    );
-
-    // Delete each demo user
-    for (const user of demoUsers) {
-      console.log(`Deleting demo user: ${user.email}`);
-
-      try {
-        // Delete from auth system
-        const { error: deleteError } =
-          await supabaseAdmin.auth.admin.deleteUser(
-            user.id,
-            true // hard delete
-          );
-
-        if (deleteError) {
-          console.error(`Error deleting auth user ${user.email}:`, deleteError);
-          continue;
-        }
-
-        // Delete from public users table
-        const { error: deletePublicError } = await supabaseAdmin
-          .from("users")
-          .delete()
-          .eq("email", user.email);
-
-        if (deletePublicError) {
-          console.error(
-            `Error deleting from public.users ${user.email}:`,
-            deletePublicError
-          );
-        }
-      } catch (error) {
-        console.error(`Unexpected error deleting user ${user.email}:`, error);
-      }
-    }
-
-    console.log("Demo account cleanup completed");
   } catch (error) {
-    console.error("Error during demo account cleanup:", error);
+    console.error("Error testing Supabase connection:", error);
+    return false;
   }
 }
 
@@ -135,14 +47,10 @@ export async function POST(request: Request) {
     // Test connection first
     const isConnected = await testConnection();
     if (!isConnected) {
-      return NextResponse.json(
-        {
-          error: "Failed to connect to database",
-          details:
-            "Could not establish connection to Supabase with admin privileges",
-        },
-        { status: 500 }
-      );
+      return NextResponse.json({ 
+        error: "Failed to connect to database",
+        details: "Could not establish connection to Supabase" 
+      }, { status: 500 });
     }
 
     const { role } = await request.json();
@@ -152,204 +60,168 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    // Use static demo emails
-    const email = role === "student" 
-      ? "demo.student@aicademy.edu"
-      : "demo.teacher@aicademy.edu";
+    const email = role === "student" ? "demo.student@aicademy.edu" : "demo.teacher@aicademy.edu";
     const fullName = role === "student" ? "Demo Student" : "Demo Teacher";
     const gradeLevel = role === "student" ? "11" : null;
-
+    
     console.log("Using email:", email);
 
-    // Try to sign in first
-    try {
-      const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
-        email,
-        password: "demo123",
-      });
-
-      if (!signInError && signInData?.session) {
-        console.log("Successfully signed in existing demo user");
-        return NextResponse.json({
-          success: true,
-          session: signInData.session,
-        });
-      }
-
-      // If sign in failed, continue with user creation
-      console.log("Sign in failed, attempting to create user");
-    } catch (error: any) {
-      console.log("Sign in attempt failed:", error.message);
-      // Continue with user creation
-    }
-
-    // Check for existing user using admin API
+    // First, try to get the user from auth.users
     const { data: { users }, error: getUserError } = await supabaseAdmin.auth.admin.listUsers();
-
+    
     if (getUserError) {
-      console.error("Error listing users:", {
-        error: getUserError,
-        details: getUserError.message,
-        status: getUserError?.status,
-        name: getUserError?.name,
-      });
-      return NextResponse.json(
-        {
-          error: "Database error fetching users",
-          details: getUserError.message,
-        },
-        { status: 500 }
-      );
+      console.error("Error getting users:", getUserError);
+      return NextResponse.json({ 
+        error: "Database error fetching users",
+        details: getUserError.message 
+      }, { status: 500 });
     }
 
-    // Log all users for debugging
-    console.log("All users:", users.map(u => ({ id: u.id, email: u.email })));
+    console.log("Current users in system:", users.map(u => ({ id: u.id, email: u.email })));
 
-    // Find existing user with exact email match
-    const existingUser = users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-    
-    console.log("Looking for user with email:", email);
-    console.log("Found existing user:", existingUser ? {
-      id: existingUser.id,
-      email: existingUser.email,
-      metadata: existingUser.user_metadata
-    } : "null");
-
+    const existingUser = users.find(u => u.email === email);
     let userId: string;
 
     if (!existingUser) {
-      // Create the static demo user if it doesn't exist using the update_demo_user function
-      const { data: updateData, error: updateError } = await supabaseAdmin.rpc(
-        'update_demo_user',
+      console.log("No existing user found, creating new user...");
+      try {
+        const createUserResponse = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password: "demo123",
+          email_confirm: true,
+          user_metadata: {
+            full_name: fullName,
+            role,
+            grade_level: gradeLevel,
+          },
+        });
+
+        console.log("Create user response:", {
+          success: !!createUserResponse.data,
+          error: createUserResponse.error,
+          userId: createUserResponse.data?.user?.id
+        });
+
+        if (createUserResponse.error) {
+          console.error("Detailed create user error:", {
+            message: createUserResponse.error.message,
+            status: createUserResponse.error.status,
+            details: createUserResponse.error
+          });
+          return NextResponse.json({ 
+            error: "Database error creating auth user",
+            details: createUserResponse.error.message 
+          }, { status: 500 });
+        }
+
+        if (!createUserResponse.data?.user?.id) {
+          console.error("No user ID returned from createUser");
+          return NextResponse.json({ 
+            error: "Invalid response from auth creation" 
+          }, { status: 500 });
+        }
+
+        userId = createUserResponse.data.user.id;
+        console.log("Successfully created auth user with ID:", userId);
+
+        // Create corresponding entry in public.users
+        const createPublicResponse = await supabaseAdmin
+          .from("users")
+          .insert({
+            id: userId,
+            email,
+            full_name: fullName,
+            role,
+            grade_level: gradeLevel,
+          });
+
+        if (createPublicResponse.error) {
+          console.error("Error creating public user:", {
+            message: createPublicResponse.error.message,
+            details: createPublicResponse.error
+          });
+          // Clean up the auth user
+          await supabaseAdmin.auth.admin.deleteUser(userId);
+          return NextResponse.json({ 
+            error: "Database error creating public user",
+            details: createPublicResponse.error.message 
+          }, { status: 500 });
+        }
+      } catch (error: any) {
+        console.error("Unexpected error during user creation:", {
+          message: error.message,
+          stack: error.stack,
+          details: error
+        });
+        return NextResponse.json({ 
+          error: "Unexpected error during user creation",
+          details: error.message 
+        }, { status: 500 });
+      }
+    } else {
+      userId = existingUser.id;
+      console.log("Found existing user with ID:", userId);
+      
+      // Update existing user
+      const updateResponse = await supabaseAdmin.auth.admin.updateUserById(
+        userId,
         {
-          p_email: email,
-          p_password: 'demo123',
-          p_role: role,
-          p_full_name: fullName,
-          p_grade_level: gradeLevel
+          password: "demo123",
+          email_confirm: true,
+          user_metadata: {
+            full_name: fullName,
+            role,
+            grade_level: gradeLevel,
+          },
         }
       );
 
-      if (updateError) {
-        console.error("Error updating/creating demo user:", {
-          message: updateError.message,
-          code: updateError?.code,
-          hint: updateError?.hint,
-          details: updateError?.details
-        });
-        return NextResponse.json(
-          {
-            error: "Failed to create demo user",
-            details: updateError.message,
-          },
-          { status: 500 }
-        );
+      if (updateResponse.error) {
+        console.error("Error updating user:", updateResponse.error);
+        return NextResponse.json({ 
+          error: "Database error updating user",
+          details: updateResponse.error.message 
+        }, { status: 500 });
       }
-
-      // Get the user ID after creation
-      const { data: { users: updatedUsers }, error: getUserError } = await supabaseAdmin.auth.admin.listUsers();
-      if (getUserError) {
-        console.error("Error getting updated user list:", getUserError);
-        return NextResponse.json(
-          {
-            error: "Failed to verify user creation",
-            details: getUserError.message,
-          },
-          { status: 500 }
-        );
-      }
-
-      const updatedUser = updatedUsers.find(u => u.email === email);
-      if (!updatedUser) {
-        console.error("Could not find created user");
-        return NextResponse.json(
-          {
-            error: "Failed to verify user creation",
-            details: "User not found after creation",
-          },
-          { status: 500 }
-        );
-      }
-
-      userId = updatedUser.id;
-    } else {
-      userId = existingUser.id;
     }
 
-    // Create a new session using signInWithPassword
+    // Create a new session
     console.log("Creating session for user ID:", userId);
-    try {
-      const { data: sessionData, error: sessionError } =
-        await supabaseAdmin.auth.signInWithPassword({
-          email,
-          password: "demo123",
-        });
+    const sessionResponse = await supabaseAdmin.auth.admin.createSession(userId);
 
-      if (sessionError) {
-        console.error("Error creating session:", {
-          message: sessionError.message,
-          code: sessionError?.status,
-          name: sessionError?.name,
-          response: (sessionError as any)?.response,
-        });
-        return NextResponse.json(
-          {
-            error: "Failed to create session",
-            details: sessionError.message,
-          },
-          { status: 500 }
-        );
-      }
-
-      if (!sessionData?.session) {
-        console.error("No session data returned");
-        return NextResponse.json(
-          {
-            error: "Invalid session response",
-          },
-          { status: 500 }
-        );
-      }
-
-      console.log("Session created successfully:", {
-        user_id: sessionData.session.user.id,
-        expires_at: sessionData.session.expires_at,
+    if (sessionResponse.error) {
+      console.error("Error creating session:", {
+        message: sessionResponse.error.message,
+        details: sessionResponse.error
       });
-
-      return NextResponse.json({
-        success: true,
-        session: sessionData.session,
-      });
-    } catch (error: any) {
-      console.error("Session creation error:", {
-        message: error.message,
-        name: error.name,
-        code: error.code,
-        status: error?.status,
-        response: error?.response,
-        stack: error.stack,
-      });
-      return NextResponse.json(
-        {
-          error: "Failed to create session",
-          details: error.message,
-        },
-        { status: 500 }
-      );
+      return NextResponse.json({ 
+        error: "Failed to create session",
+        details: sessionResponse.error.message 
+      }, { status: 500 });
     }
+
+    if (!sessionResponse.data.session) {
+      console.error("No session data returned");
+      return NextResponse.json({ 
+        error: "Invalid session response" 
+      }, { status: 500 });
+    }
+
+    console.log("Session created successfully");
+    return NextResponse.json({
+      success: true,
+      session: sessionResponse.data.session,
+    });
   } catch (error: any) {
     console.error("Demo auth error:", {
       message: error.message,
-      name: error.name,
-      code: error.code,
-      status: error?.status,
-      response: error?.response,
       stack: error.stack,
+      details: error
     });
     return NextResponse.json(
-      {
+      { 
         error: error.message || "Internal server error",
-        details: error.message,
+        details: error.message 
       },
       { status: 500 }
     );

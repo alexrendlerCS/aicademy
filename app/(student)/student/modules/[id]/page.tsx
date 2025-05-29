@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import ModuleView from "@/components/module-view";
+import ModuleView from "./module-view";
 
 export default function ModulePage() {
   const params = useParams();
@@ -17,8 +17,8 @@ export default function ModulePage() {
         const { data: userData } = await supabase.auth.getUser();
         if (!userData?.user) return;
 
-        // Fetch module with lessons, quiz questions, and student progress
-        const { data: moduleData, error } = await supabase
+        // First fetch the module with all its data
+        const { data: moduleData, error: moduleError } = await supabase
           .from("modules")
           .select(
             `
@@ -30,19 +30,76 @@ export default function ModulePage() {
                 question,
                 type,
                 options,
-                correct_index
+                correct_index,
+                correct_answer_text
               )
-            ),
-            student_modules!inner(progress, completed_at)
+            )
           `
           )
           .eq("id", params.id)
-          .eq("student_modules.student_id", userData.user.id)
           .single();
 
-        if (error) {
-          console.error("Error fetching module:", error);
+        if (moduleError) {
+          console.error("Error fetching module:", moduleError);
           return;
+        }
+
+        // Get the due date from module_assignments
+        const { data: assignmentData } = await supabase
+          .from("module_assignments")
+          .select("due_date")
+          .or(
+            `student_id.eq.${userData.user.id},class_id.in.(select class_id from class_memberships where student_id = '${userData.user.id}' and status = 'approved')`
+          )
+          .eq("module_id", params.id)
+          .single();
+
+        // Check if student has access through class membership and module assignments
+        const { data: moduleAccess, error: accessError } = await supabase
+          .from("class_memberships")
+          .select(
+            `
+            *,
+            classes!inner(
+              module_assignments!inner(*)
+            )
+          `
+          )
+          .eq("student_id", userData.user.id)
+          .eq("status", "approved")
+          .eq("classes.module_assignments.module_id", params.id);
+
+        if (accessError) {
+          console.error("Error checking module access:", accessError);
+          return;
+        }
+
+        if (!moduleAccess || moduleAccess.length === 0) {
+          console.error("No access to this module");
+          return;
+        }
+
+        // Ensure student_modules entry exists
+        const { data: existingProgress } = await supabase
+          .from("student_modules")
+          .select("*")
+          .eq("student_id", userData.user.id)
+          .eq("module_id", params.id)
+          .single();
+
+        if (!existingProgress) {
+          const { error: progressError } = await supabase
+            .from("student_modules")
+            .insert({
+              student_id: userData.user.id,
+              module_id: params.id,
+              progress: 0,
+              completed_at: null,
+            });
+
+          if (progressError) {
+            console.error("Error creating progress entry:", progressError);
+          }
         }
 
         // Fetch quiz attempts for this student
@@ -99,7 +156,7 @@ export default function ModulePage() {
           totalQuestions > 0 ? completedQuestions / totalQuestions : 0;
 
         // Update student_modules with new progress
-        if (progress !== moduleData.student_modules[0]?.progress) {
+        if (existingProgress && progress !== existingProgress.progress) {
           const { error: upsertError } = await supabase
             .from("student_modules")
             .upsert(
@@ -121,6 +178,8 @@ export default function ModulePage() {
 
         const processedModule = {
           ...moduleData,
+          lessonCount: moduleData.lessons.length,
+          due_date: assignmentData?.due_date || null,
           lessons: moduleData.lessons.map((lesson: any) => ({
             ...lesson,
             quiz_questions: lesson.quiz_questions.map((question: any) => ({
@@ -143,11 +202,10 @@ export default function ModulePage() {
             },
           })),
           progress: {
-            ...moduleData.student_modules[0],
             progress: progress,
+            completed_at: progress === 1 ? new Date().toISOString() : null,
           },
         };
-        delete processedModule.student_modules;
 
         setModule(processedModule);
       } catch (error) {
@@ -165,7 +223,7 @@ export default function ModulePage() {
   }
 
   if (!module) {
-    return <div>Module not found</div>;
+    return <div>Module not found or no access</div>;
   }
 
   return <ModuleView module={module} />;

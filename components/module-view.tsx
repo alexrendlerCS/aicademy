@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProgressBar } from "@/components/progress-bar";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner";
 
 interface ModuleViewProps {
   module: any;
@@ -24,10 +26,98 @@ export default function ModuleView({
   previewData,
 }: ModuleViewProps) {
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<
+    Record<string, string | number>
+  >({});
+  const [submitting, setSubmitting] = useState(false);
   const lessons = module.lessons || [];
   const currentLesson = lessons[currentLessonIndex];
   const isFirstLesson = currentLessonIndex === 0;
   const isLastLesson = currentLessonIndex === lessons.length - 1;
+
+  const handleAnswerSelect = (questionId: string, answer: string | number) => {
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [questionId]: answer,
+    }));
+  };
+
+  const handleQuizSubmit = async () => {
+    if (isPreview) return;
+
+    try {
+      setSubmitting(true);
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) {
+        toast.error("You must be logged in to submit answers");
+        return;
+      }
+
+      // Get all questions for this lesson
+      const questions = currentLesson.quiz_questions || [];
+
+      // Check if all questions are answered
+      const unansweredQuestions = questions.filter(
+        (q: any) => !selectedAnswers[q.id]
+      );
+
+      if (unansweredQuestions.length > 0) {
+        toast.error("Please answer all questions before submitting");
+        return;
+      }
+
+      // Submit each answer
+      const submissionPromises = questions.map((question: any) => {
+        const answer = selectedAnswers[question.id];
+        const isCorrect =
+          question.type === "multiple_choice"
+            ? Number(answer) === question.correct_index
+            : answer === question.correct_answer_text;
+
+        return supabase.from("quiz_attempts").upsert(
+          {
+            student_id: userData.user.id,
+            question_id: question.id,
+            answer: answer.toString(),
+            is_correct: isCorrect,
+          },
+          {
+            onConflict: "student_id,question_id",
+          }
+        );
+      });
+
+      await Promise.all(submissionPromises);
+
+      // Mark lesson as completed
+      await supabase.from("lesson_progress").upsert(
+        {
+          student_id: userData.user.id,
+          lesson_id: currentLesson.id,
+          completed: true,
+          completed_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "student_id,lesson_id",
+        }
+      );
+
+      toast.success("Quiz submitted successfully!");
+
+      // Clear selected answers
+      setSelectedAnswers({});
+
+      // Move to next lesson if available
+      if (!isLastLesson) {
+        setCurrentLessonIndex((prev) => prev + 1);
+      }
+    } catch (error) {
+      console.error("Error submitting quiz:", error);
+      toast.error("Failed to submit quiz. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -38,12 +128,15 @@ export default function ModuleView({
             <ul className="space-y-2">
               {lessons.map((lesson: any, index: number) => {
                 const isCurrent = index === currentLessonIndex;
+                const isCompleted = !isPreview && lesson.progress?.completed;
                 return (
                   <li key={lesson.id}>
                     <button
                       className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-3 transition-all border-2 ${
                         isCurrent
                           ? "bg-primary text-primary-foreground border-primary shadow"
+                          : isCompleted
+                          ? "bg-green-100 dark:bg-green-900/20 border-green-500/50"
                           : "hover:bg-muted border-transparent"
                       }`}
                       onClick={() => setCurrentLessonIndex(index)}
@@ -52,10 +145,12 @@ export default function ModuleView({
                         className={`flex items-center justify-center h-6 w-6 rounded-full text-xs transition-all ${
                           isCurrent
                             ? "bg-primary-foreground text-primary border-2 border-primary"
+                            : isCompleted
+                            ? "bg-green-500 text-white border-none"
                             : "bg-muted text-muted-foreground border"
                         }`}
                       >
-                        {index + 1}
+                        {isCompleted ? "✓" : index + 1}
                       </div>
                       <span className="truncate font-medium">
                         {lesson.title}
@@ -102,51 +197,140 @@ export default function ModuleView({
                     </div>
                     <div className="space-y-6">
                       {currentLesson?.quiz_questions?.map(
-                        (question: any, qIndex: number) => (
-                          <div key={question.id} className="space-y-3">
-                            <div className="font-semibold text-lg">
-                              Question {qIndex + 1}
-                            </div>
-                            <p className="mb-2 text-base">
-                              {question.question}
-                            </p>
-                            <div className="space-y-2">
-                              {question.type === "multiple_choice" ? (
-                                question.options?.map(
-                                  (option: string, oIndex: number) => (
-                                    <label
-                                      key={oIndex}
-                                      className="flex items-center gap-3 px-3 py-2 rounded-lg border border-muted cursor-not-allowed opacity-70"
-                                    >
-                                      <input
-                                        type="radio"
-                                        disabled
-                                        className="h-5 w-5 accent-primary"
-                                      />
-                                      <span className="text-base">
-                                        {option}
-                                      </span>
-                                    </label>
+                        (question: any, qIndex: number) => {
+                          const existingAttempt =
+                            !isPreview && question.attempt;
+                          return (
+                            <div key={question.id} className="space-y-3">
+                              <div className="font-semibold text-lg">
+                                Question {qIndex + 1}
+                              </div>
+                              <p className="mb-2 text-base">
+                                {question.question}
+                              </p>
+                              <div className="space-y-2">
+                                {question.type === "multiple_choice" ? (
+                                  question.options?.map(
+                                    (option: string, oIndex: number) => {
+                                      const isSelected =
+                                        selectedAnswers[question.id] === oIndex;
+                                      const showCorrect = existingAttempt;
+                                      const isCorrect =
+                                        oIndex === question.correct_index;
+                                      const wasSelected =
+                                        existingAttempt?.answer ===
+                                        oIndex.toString();
+
+                                      return (
+                                        <label
+                                          key={oIndex}
+                                          className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-colors ${
+                                            isPreview
+                                              ? "cursor-not-allowed opacity-70"
+                                              : existingAttempt
+                                              ? isCorrect
+                                                ? "bg-green-100 dark:bg-green-900/20 border-green-500"
+                                                : wasSelected
+                                                ? "bg-red-100 dark:bg-red-900/20 border-red-500"
+                                                : "border-muted"
+                                              : isSelected
+                                              ? "bg-primary/10 border-primary"
+                                              : "hover:bg-muted/50 cursor-pointer"
+                                          }`}
+                                        >
+                                          <input
+                                            type="radio"
+                                            disabled={
+                                              isPreview || existingAttempt
+                                            }
+                                            checked={isSelected}
+                                            onChange={() =>
+                                              handleAnswerSelect(
+                                                question.id,
+                                                oIndex
+                                              )
+                                            }
+                                            className="h-5 w-5 accent-primary"
+                                          />
+                                          <span className="text-base">
+                                            {option}
+                                          </span>
+                                          {showCorrect &&
+                                            (isCorrect || wasSelected) && (
+                                              <span className="ml-auto">
+                                                {isCorrect ? "✓" : "✗"}
+                                              </span>
+                                            )}
+                                        </label>
+                                      );
+                                    }
                                   )
-                                )
-                              ) : (
-                                <input
-                                  type="text"
-                                  disabled
-                                  className="input input-bordered w-full max-w-xs px-3 py-2 rounded border text-base opacity-70 cursor-not-allowed"
-                                  placeholder="Student answer will go here"
-                                />
-                              )}
+                                ) : (
+                                  <div>
+                                    <input
+                                      type="text"
+                                      disabled={isPreview || existingAttempt}
+                                      value={selectedAnswers[question.id] || ""}
+                                      onChange={(e) =>
+                                        handleAnswerSelect(
+                                          question.id,
+                                          e.target.value
+                                        )
+                                      }
+                                      className={`w-full px-3 py-2 rounded border text-base ${
+                                        isPreview
+                                          ? "opacity-70 cursor-not-allowed"
+                                          : existingAttempt
+                                          ? existingAttempt.is_correct
+                                            ? "bg-green-100 dark:bg-green-900/20 border-green-500"
+                                            : "bg-red-100 dark:bg-red-900/20 border-red-500"
+                                          : ""
+                                      }`}
+                                      placeholder="Enter your answer"
+                                    />
+                                    {existingAttempt && (
+                                      <div className="mt-2 text-sm">
+                                        <span
+                                          className={
+                                            existingAttempt.is_correct
+                                              ? "text-green-600"
+                                              : "text-red-600"
+                                          }
+                                        >
+                                          Your answer: {existingAttempt.answer}
+                                        </span>
+                                        {!existingAttempt.is_correct && (
+                                          <span className="text-green-600 ml-4">
+                                            Correct answer:{" "}
+                                            {question.correct_answer_text}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        )
+                          );
+                        }
                       )}
                     </div>
-                    {isPreview && (
+                    {isPreview ? (
                       <p className="text-muted-foreground text-sm">
                         This is a preview mode. Students will be able to submit
                         answers and track their progress here.
                       </p>
+                    ) : (
+                      currentLesson?.quiz_questions?.length > 0 &&
+                      !currentLesson.progress?.completed && (
+                        <Button
+                          className="mt-6"
+                          onClick={handleQuizSubmit}
+                          disabled={submitting}
+                        >
+                          {submitting ? "Submitting..." : "Submit Quiz"}
+                        </Button>
+                      )
                     )}
                   </div>
                 </TabsContent>

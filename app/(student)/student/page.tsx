@@ -207,7 +207,7 @@ export default function StudentDashboard() {
             // First get all module assignments for this class
             const { data: moduleAssignments } = await supabase
               .from("module_assignments")
-              .select("*, modules(*)")
+              .select("*, modules(*, lessons(id))")
               .eq("class_id", cls.id);
 
             // Map each module assignment to include progress
@@ -224,7 +224,7 @@ export default function StudentDashboard() {
                   ...assignment.modules,
                   class: cls,
                   progress: progress || { completed_at: null, progress: 0 },
-                  due_date: cls.membership?.due_date || null,
+                  due_date: assignment.due_date || null,
                   lessonCount: assignment.modules?.lessons?.length || 0,
                 };
               }
