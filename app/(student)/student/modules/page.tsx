@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export default function StudentModulesPage() {
+function StudentModules() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [modules, setModules] = useState<any[]>([]);
@@ -486,5 +486,19 @@ export default function StudentModulesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function StudentModulesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen w-full items-center justify-center">
+          <div className="text-center">Loading modules...</div>
+        </div>
+      }
+    >
+      <StudentModules />
+    </Suspense>
   );
 }
