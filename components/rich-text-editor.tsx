@@ -31,12 +31,14 @@ interface RichTextEditorProps {
   content: string;
   onChange: (content: string) => void;
   placeholder?: string;
+  editable?: boolean;
 }
 
 export function RichTextEditor({
   content,
   onChange,
   placeholder = "Enter content here...",
+  editable = true,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -62,6 +64,7 @@ export function RichTextEditor({
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
+    editable,
     editorProps: {
       attributes: {
         class:
@@ -115,106 +118,135 @@ export function RichTextEditor({
 
   return (
     <div className="border rounded-md">
-      <div className="flex flex-wrap items-center gap-1 border-b bg-muted/50 p-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={editor.isActive("bold") ? "bg-muted" : ""}
-        >
-          <Bold className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={editor.isActive("italic") ? "bg-muted" : ""}
-        >
-          <Italic className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          className={editor.isActive("underline") ? "bg-muted" : ""}
-        >
-          <UnderlineIcon className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={editor.isActive("bulletList") ? "bg-muted" : ""}
-        >
-          <List className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            editor.chain().focus().toggleHeading({ level: 1 }).run()
-          }
-          className={editor.isActive("heading", { level: 1 }) ? "bg-muted" : ""}
-        >
-          <Heading1 className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            editor.chain().focus().toggleHeading({ level: 2 }).run()
-          }
-          className={editor.isActive("heading", { level: 2 }) ? "bg-muted" : ""}
-        >
-          <Heading2 className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().setTextAlign("left").run()}
-          className={editor.isActive({ textAlign: "left" }) ? "bg-muted" : ""}
-        >
-          <AlignLeft className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().setTextAlign("center").run()}
-          className={editor.isActive({ textAlign: "center" }) ? "bg-muted" : ""}
-        >
-          <AlignCenter className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().setTextAlign("right").run()}
-          className={editor.isActive({ textAlign: "right" }) ? "bg-muted" : ""}
-        >
-          <AlignRight className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={setLink}
-          className={editor.isActive("link") ? "bg-muted" : ""}
-        >
-          <LinkIcon className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm" onClick={addImage}>
-          <ImageIcon className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handlePasteHtml}
-          title="Paste formatted HTML"
-        >
-          <FileCode className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="p-4">
-        <EditorContent editor={editor} />
-      </div>
+      {editable && (
+        <div className="flex flex-wrap items-center gap-1 border-b bg-muted/50 p-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            className={editor.isActive("bold") ? "bg-muted" : ""}
+          >
+            <Bold className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            className={editor.isActive("italic") ? "bg-muted" : ""}
+          >
+            <Italic className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            className={editor.isActive("underline") ? "bg-muted" : ""}
+          >
+            <UnderlineIcon className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            className={editor.isActive("bulletList") ? "bg-muted" : ""}
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              editor.chain().focus().toggleHeading({ level: 1 }).run()
+            }
+            className={
+              editor.isActive("heading", { level: 1 }) ? "bg-muted" : ""
+            }
+          >
+            <Heading1 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              editor.chain().focus().toggleHeading({ level: 2 }).run()
+            }
+            className={
+              editor.isActive("heading", { level: 2 }) ? "bg-muted" : ""
+            }
+          >
+            <Heading2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().setTextAlign("left").run()}
+            className={editor.isActive({ textAlign: "left" }) ? "bg-muted" : ""}
+          >
+            <AlignLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().setTextAlign("center").run()}
+            className={
+              editor.isActive({ textAlign: "center" }) ? "bg-muted" : ""
+            }
+          >
+            <AlignCenter className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().setTextAlign("right").run()}
+            className={
+              editor.isActive({ textAlign: "right" }) ? "bg-muted" : ""
+            }
+          >
+            <AlignRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={setLink}
+            className={editor.isActive("link") ? "bg-muted" : ""}
+          >
+            <LinkIcon className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={addImage}
+            className={editor.isActive("image") ? "bg-muted" : ""}
+          >
+            <ImageIcon className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+            className={editor.isActive("codeBlock") ? "bg-muted" : ""}
+          >
+            <FileCode className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().toggleHighlight().run()}
+            className={editor.isActive("highlight") ? "bg-muted" : ""}
+          >
+            <HighlighterIcon className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handlePasteHtml}
+            className="ml-auto"
+          >
+            Paste HTML
+          </Button>
+        </div>
+      )}
+      <EditorContent editor={editor} className="p-4" />
     </div>
   );
 }

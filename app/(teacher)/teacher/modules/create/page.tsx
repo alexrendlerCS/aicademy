@@ -32,6 +32,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/lib/supabaseClient";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { isDemoUser } from "@/lib/utils";
 
 interface Lesson {
   id: string;
@@ -50,6 +51,8 @@ interface QuizQuestion {
 }
 
 export default function CreateModule() {
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const isDemo = isDemoUser(currentUser?.id);
   const [moduleTitle, setModuleTitle] = useState("");
   const [moduleSubject, setModuleSubject] = useState("");
   const [moduleDescription, setModuleDescription] = useState("");
@@ -77,6 +80,16 @@ export default function CreateModule() {
   const [studentDueDates, setStudentDueDates] = useState<
     Record<string, string>
   >({});
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     const fetchClassesAndStudents = async () => {
@@ -399,233 +412,162 @@ export default function CreateModule() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <div className="container mx-auto py-8 max-w-5xl">
+      {isDemo && (
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <p className="text-orange-800">
+            This is a demo account. Module creation and editing are disabled,
+            but you can explore the interface and see how it works.
+          </p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/teacher/modules">
               <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Back</span>
+              <span className="sr-only">Back to Modules</span>
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Create Module</h1>
+          <h1 className="text-3xl font-bold">Create New Module</h1>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline">Save Draft</Button>
-          <Button onClick={handlePublish} disabled={publishing}>
-            <Save className="mr-2 h-4 w-4" />
-            {publishing ? "Publishing..." : "Publish"}
-          </Button>
-        </div>
+        <Button
+          onClick={handlePublish}
+          disabled={publishing || isDemo}
+          className="gap-2"
+        >
+          {publishing ? (
+            "Publishing..."
+          ) : (
+            <>
+              <Upload className="h-4 w-4" />
+              Publish Module
+            </>
+          )}
+        </Button>
       </div>
 
-      {error && <div className="text-red-500 mt-2">{error}</div>}
-      {success && <div className="text-green-600 mt-2">{success}</div>}
+      {error && (
+        <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="bg-green-50 text-green-600 p-4 rounded-lg mb-6">
+          {success}
+        </div>
+      )}
 
-      <div className="grid gap-6 md:grid-cols-6">
-        <div className="md:col-span-4 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Module Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Module Title</Label>
-                <Input
-                  id="title"
-                  value={moduleTitle}
-                  onChange={(e) => setModuleTitle(e.target.value)}
-                  placeholder="Enter module title"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="subject">Subject</Label>
-                <Select value={moduleSubject} onValueChange={setModuleSubject}>
-                  <SelectTrigger id="subject">
-                    <SelectValue placeholder="Select subject" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="math">Math</SelectItem>
-                    <SelectItem value="reading">Reading</SelectItem>
-                    <SelectItem value="science">Science</SelectItem>
-                    <SelectItem value="history">History</SelectItem>
-                    <SelectItem value="art">Art</SelectItem>
-                    <SelectItem value="geography">Geography</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={moduleDescription}
-                  onChange={(e) => setModuleDescription(e.target.value)}
-                  placeholder="Enter module description"
-                  rows={4}
-                />
-              </div>
-              <Separator />
-              <div className="mb-2 text-sm text-muted-foreground">
-                Assign this module to classes or individual students and set a
-                due date for each assignment.
-              </div>
-              <div>
-                <Label>Assign to Classes</Label>
-                <div className="flex flex-col gap-3 mt-2">
-                  {classes.map((cls) => (
-                    <div
-                      key={cls.id}
-                      className="flex items-center gap-4 p-2 bg-muted/30 rounded"
+      <div className="space-y-6">
+        <div className="grid gap-6 md:grid-cols-6">
+          <div className="md:col-span-4 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Module Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Module Title</Label>
+                    <Input
+                      id="title"
+                      placeholder="Enter module title"
+                      value={moduleTitle}
+                      onChange={(e) => setModuleTitle(e.target.value)}
+                      disabled={isDemo}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="subject">Subject</Label>
+                    <Select
+                      value={moduleSubject}
+                      onValueChange={setModuleSubject}
+                      disabled={isDemo}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedClassIds.includes(cls.id)}
-                        onChange={(e) => {
-                          setSelectedClassIds((ids) =>
-                            e.target.checked
-                              ? [...ids, cls.id]
-                              : ids.filter((id) => id !== cls.id)
-                          );
-                        }}
-                      />
-                      <span className="font-medium">{cls.name}</span>
-                      {selectedClassIds.includes(cls.id) && (
-                        <div className="flex items-center gap-2 ml-4">
-                          <Label htmlFor={`due-date-class-${cls.id}`}>
-                            Due Date
-                          </Label>
-                          <Input
-                            id={`due-date-class-${cls.id}`}
-                            type="datetime-local"
-                            className="w-56"
-                            value={classDueDates[cls.id] || ""}
-                            onChange={(e) =>
-                              setClassDueDates((prev) => ({
-                                ...prev,
-                                [cls.id]: e.target.value,
-                              }))
-                            }
-                            placeholder="Due date"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {classes.length === 0 && (
-                    <span className="text-muted-foreground">
-                      No classes found.
-                    </span>
-                  )}
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a subject" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="math">Mathematics</SelectItem>
+                        <SelectItem value="science">Science</SelectItem>
+                        <SelectItem value="english">English</SelectItem>
+                        <SelectItem value="history">History</SelectItem>
+                        <SelectItem value="computer_science">
+                          Computer Science
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Enter module description"
+                      value={moduleDescription}
+                      onChange={(e) => setModuleDescription(e.target.value)}
+                      disabled={isDemo}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <Label>Assign to Individual Students (Coming soon)</Label>
-                <div className="flex flex-col gap-3 mt-2">
-                  {Object.entries(studentsByClass).map(([classId, students]) =>
-                    students.map((student) =>
-                      student ? (
-                        <div
-                          key={student.id}
-                          className="flex items-center gap-4 p-2 bg-muted/30 rounded"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedStudentIds.includes(student.id)}
-                            onChange={(e) => {
-                              setSelectedStudentIds((ids) =>
-                                e.target.checked
-                                  ? [...ids, student.id]
-                                  : ids.filter((id) => id !== student.id)
-                              );
-                            }}
-                          />
-                          <span className="font-medium">
-                            {student.full_name || student.email}
-                          </span>
-                          {selectedStudentIds.includes(student.id) && (
-                            <div className="flex items-center gap-2 ml-4">
-                              <Label htmlFor={`due-date-student-${student.id}`}>
-                                Due Date
-                              </Label>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Lessons</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addLesson}
+                  disabled={isDemo}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Lesson
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Accordion type="single" collapsible className="w-full">
+                  {lessons.map((lesson, index) => (
+                    <AccordionItem key={lesson.id} value={lesson.id}>
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center gap-4">
+                          <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
+                          <span>{lesson.title || `Lesson ${index + 1}`}</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-4 pt-4">
+                          <div className="space-y-2">
+                            <Label>Lesson Title</Label>
+                            <div className="flex gap-2">
                               <Input
-                                id={`due-date-student-${student.id}`}
-                                type="datetime-local"
-                                className="w-56"
-                                value={studentDueDates[student.id] || ""}
+                                value={lesson.title}
                                 onChange={(e) =>
-                                  setStudentDueDates((prev) => ({
-                                    ...prev,
-                                    [student.id]: e.target.value,
-                                  }))
+                                  updateLesson(
+                                    lesson.id,
+                                    "title",
+                                    e.target.value
+                                  )
                                 }
-                                placeholder="Due date"
+                                placeholder={`Lesson ${index + 1}`}
+                                disabled={isDemo}
                               />
+                              {lessons.length > 1 && (
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => removeLesson(lesson.id)}
+                                  disabled={isDemo}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      ) : null
-                    )
-                  )}
-                  {Object.values(studentsByClass).flat().length === 0 && (
-                    <span className="text-muted-foreground">
-                      No students found.
-                    </span>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Lessons</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Accordion type="multiple" className="w-full">
-                {lessons.map((lesson, index) => (
-                  <AccordionItem key={lesson.id} value={lesson.id}>
-                    <AccordionTrigger className="hover:no-underline">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center h-6 w-6 rounded-full bg-muted text-sm font-medium">
-                          {index + 1}
-                        </div>
-                        <span>{lesson.title || `Lesson ${index + 1}`}</span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4 pt-2">
-                        <div className="flex items-center gap-2">
-                          <GripVertical className="h-5 w-5 text-muted-foreground" />
-                          <div className="space-y-2 flex-1">
-                            <Label htmlFor={`lesson-title-${lesson.id}`}>
-                              Lesson Title
-                            </Label>
-                            <Input
-                              id={`lesson-title-${lesson.id}`}
-                              value={lesson.title}
-                              onChange={(e) =>
-                                updateLesson(lesson.id, "title", e.target.value)
-                              }
-                              placeholder={`Lesson ${index + 1} Title`}
-                            />
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="self-end text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => removeLesson(lesson.id)}
-                            disabled={lessons.length === 1}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Remove lesson</span>
-                          </Button>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor={`lesson-content-${lesson.id}`}>
-                            Lesson Content
-                          </Label>
-                          <div className="border rounded-md">
+                          <div className="space-y-2">
+                            <Label>Content</Label>
                             <RichTextEditor
                               content={lesson.content}
                               onChange={(value) =>
@@ -634,285 +576,428 @@ export default function CreateModule() {
                               placeholder={`Enter content for Lesson ${
                                 index + 1
                               }...`}
+                              editable={!isDemo}
                             />
                           </div>
-                        </div>
-
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <Label>Quiz Questions</Label>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addQuizQuestion(lesson.id)}
-                            >
-                              <Plus className="h-3.5 w-3.5 mr-1" />
-                              Add Question
-                            </Button>
-                          </div>
-
-                          {lesson.quizQuestions.length > 0 ? (
-                            <div className="space-y-6">
-                              {lesson.quizQuestions.map((question, qIndex) => (
-                                <div
-                                  key={question.id}
-                                  className="space-y-4 border rounded-md p-4"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <h4 className="font-medium">
-                                      Question {qIndex + 1}
-                                    </h4>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() =>
-                                        removeQuizQuestion(
-                                          lesson.id,
-                                          question.id
-                                        )
-                                      }
+                          <Separator className="my-4" />
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <Label>Quiz Questions</Label>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => addQuizQuestion(lesson.id)}
+                                disabled={isDemo}
+                                className="gap-2"
+                              >
+                                <Plus className="h-4 w-4" />
+                                Add Question
+                              </Button>
+                            </div>
+                            {lesson.quizQuestions.length > 0 ? (
+                              <div className="space-y-6">
+                                {lesson.quizQuestions.map(
+                                  (question, qIndex) => (
+                                    <div
+                                      key={question.id}
+                                      className="space-y-4 border rounded-md p-4"
                                     >
-                                      <Trash2 className="h-4 w-4" />
-                                      <span className="sr-only">
-                                        Remove question
-                                      </span>
-                                    </Button>
-                                  </div>
+                                      <div className="flex items-center justify-between">
+                                        <h4 className="font-medium">
+                                          Question {qIndex + 1}
+                                        </h4>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                          onClick={() =>
+                                            removeQuizQuestion(
+                                              lesson.id,
+                                              question.id
+                                            )
+                                          }
+                                          disabled={isDemo}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                          <span className="sr-only">
+                                            Remove question
+                                          </span>
+                                        </Button>
+                                      </div>
 
-                                  <div className="space-y-2">
-                                    <Label
-                                      htmlFor={`question-${lesson.id}-${question.id}`}
-                                    >
-                                      Question
-                                    </Label>
-                                    <Input
-                                      id={`question-${lesson.id}-${question.id}`}
-                                      value={question.question}
-                                      onChange={(e) =>
-                                        updateQuizQuestion(
-                                          lesson.id,
-                                          question.id,
-                                          "question",
-                                          e.target.value
-                                        )
-                                      }
-                                      placeholder="Enter question"
-                                    />
-                                  </div>
+                                      <div className="space-y-2">
+                                        <Label
+                                          htmlFor={`question-${lesson.id}-${question.id}`}
+                                        >
+                                          Question
+                                        </Label>
+                                        <Input
+                                          id={`question-${lesson.id}-${question.id}`}
+                                          value={question.question}
+                                          onChange={(e) =>
+                                            updateQuizQuestion(
+                                              lesson.id,
+                                              question.id,
+                                              "question",
+                                              e.target.value
+                                            )
+                                          }
+                                          placeholder="Enter question"
+                                          disabled={isDemo}
+                                        />
+                                      </div>
 
-                                  <div className="space-y-2">
-                                    <Label>Question Type</Label>
-                                    <Select
-                                      value={question.type}
-                                      onValueChange={(val) =>
-                                        updateQuizQuestion(
-                                          lesson.id,
-                                          question.id,
-                                          "type",
-                                          val as any
-                                        )
-                                      }
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="multiple_choice">
-                                          Multiple Choice
-                                        </SelectItem>
-                                        <SelectItem value="free_response">
-                                          Free Response
-                                        </SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
+                                      <div className="space-y-2">
+                                        <Label>Question Type</Label>
+                                        <Select
+                                          value={question.type}
+                                          onValueChange={(val) =>
+                                            updateQuizQuestion(
+                                              lesson.id,
+                                              question.id,
+                                              "type",
+                                              val as any
+                                            )
+                                          }
+                                          disabled={isDemo}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="multiple_choice">
+                                              Multiple Choice
+                                            </SelectItem>
+                                            <SelectItem value="free_response">
+                                              Free Response
+                                            </SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
 
-                                  {question.type === "multiple_choice" ? (
-                                    <div className="space-y-3">
-                                      <Label>Answer Options</Label>
-                                      {question.options.map(
-                                        (option, oIndex) => (
-                                          <div
-                                            key={oIndex}
-                                            className="flex items-center gap-2"
-                                          >
-                                            <input
-                                              type="radio"
-                                              id={`option-${lesson.id}-${question.id}-${oIndex}`}
-                                              name={`question-${lesson.id}-${question.id}`}
-                                              checked={
-                                                question.correctOption ===
-                                                oIndex
-                                              }
-                                              onChange={() =>
-                                                updateQuizQuestion(
-                                                  lesson.id,
-                                                  question.id,
-                                                  "correctOption",
-                                                  oIndex
-                                                )
-                                              }
-                                              className="h-4 w-4 text-primary"
-                                            />
-                                            <Input
-                                              value={option}
-                                              onChange={(e) =>
-                                                updateQuizOption(
-                                                  lesson.id,
-                                                  question.id,
-                                                  oIndex,
-                                                  e.target.value
-                                                )
-                                              }
-                                              placeholder={`Option ${
-                                                oIndex + 1
-                                              }`}
-                                              className="flex-1"
-                                            />
-                                          </div>
-                                        )
+                                      {question.type === "multiple_choice" ? (
+                                        <div className="space-y-3">
+                                          <Label>Answer Options</Label>
+                                          {question.options.map(
+                                            (option, oIndex) => (
+                                              <div
+                                                key={oIndex}
+                                                className="flex items-center gap-2"
+                                              >
+                                                <input
+                                                  type="radio"
+                                                  id={`option-${lesson.id}-${question.id}-${oIndex}`}
+                                                  name={`question-${lesson.id}-${question.id}`}
+                                                  checked={
+                                                    question.correctOption ===
+                                                    oIndex
+                                                  }
+                                                  onChange={() =>
+                                                    updateQuizQuestion(
+                                                      lesson.id,
+                                                      question.id,
+                                                      "correctOption",
+                                                      oIndex
+                                                    )
+                                                  }
+                                                  className="h-4 w-4 text-primary"
+                                                />
+                                                <Input
+                                                  value={option}
+                                                  onChange={(e) =>
+                                                    updateQuizOption(
+                                                      lesson.id,
+                                                      question.id,
+                                                      oIndex,
+                                                      e.target.value
+                                                    )
+                                                  }
+                                                  placeholder={`Option ${
+                                                    oIndex + 1
+                                                  }`}
+                                                  className="flex-1"
+                                                />
+                                              </div>
+                                            )
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-2">
+                                          <Label>Correct Answer</Label>
+                                          <Input
+                                            value={
+                                              question.correctAnswerText || ""
+                                            }
+                                            onChange={(e) =>
+                                              updateQuizQuestion(
+                                                lesson.id,
+                                                question.id,
+                                                "correctAnswerText",
+                                                e.target.value
+                                              )
+                                            }
+                                            placeholder="Enter the correct answer"
+                                            disabled={isDemo}
+                                          />
+                                        </div>
                                       )}
                                     </div>
-                                  ) : (
-                                    <div className="space-y-2">
-                                      <Label>Correct Answer</Label>
-                                      <Input
-                                        value={question.correctAnswerText || ""}
-                                        onChange={(e) =>
-                                          updateQuizQuestion(
-                                            lesson.id,
-                                            question.id,
-                                            "correctAnswerText",
-                                            e.target.value
-                                          )
-                                        }
-                                        placeholder="Enter the correct answer"
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-4 text-muted-foreground">
-                              No quiz questions added yet
+                                  )
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-muted-foreground">
+                                No quiz questions added yet
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Assign Module</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select
+                      value={status}
+                      onValueChange={setStatus}
+                      disabled={isDemo}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="published">Published</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Assign to Classes</Label>
+                    <div className="flex flex-col gap-3 mt-2">
+                      {classes.map((cls) => (
+                        <div
+                          key={cls.id}
+                          className="flex items-center gap-4 p-2 bg-muted/30 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedClassIds.includes(cls.id)}
+                            onChange={(e) => {
+                              setSelectedClassIds((ids) =>
+                                e.target.checked
+                                  ? [...ids, cls.id]
+                                  : ids.filter((id) => id !== cls.id)
+                              );
+                            }}
+                          />
+                          <span className="font-medium">{cls.name}</span>
+                          {selectedClassIds.includes(cls.id) && (
+                            <div className="flex items-center gap-2 ml-4">
+                              <Label htmlFor={`due-date-class-${cls.id}`}>
+                                Due Date
+                              </Label>
+                              <Input
+                                id={`due-date-class-${cls.id}`}
+                                type="datetime-local"
+                                className="w-56"
+                                value={classDueDates[cls.id] || ""}
+                                onChange={(e) =>
+                                  setClassDueDates((prev) => ({
+                                    ...prev,
+                                    [cls.id]: e.target.value,
+                                  }))
+                                }
+                                placeholder="Due date"
+                              />
                             </div>
                           )}
                         </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-
-              <Button variant="outline" className="w-full" onClick={addLesson}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Lesson
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="md:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Module Preview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {moduleTitle ? (
-                  <h3 className="font-semibold text-lg">{moduleTitle}</h3>
-                ) : (
-                  <div className="h-6 bg-muted rounded animate-pulse" />
-                )}
-
-                {moduleSubject ? (
-                  <div className="flex items-center gap-2">
-                    <SubjectIcon
-                      subject={moduleSubject as any}
-                      className="h-8 w-8"
-                    />
-                    <span className="capitalize">{moduleSubject}</span>
-                  </div>
-                ) : (
-                  <div className="h-8 bg-muted rounded animate-pulse" />
-                )}
-
-                <Separator />
-
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Description</h4>
-                  {moduleDescription ? (
-                    <p className="text-sm text-muted-foreground">
-                      {moduleDescription}
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="h-4 bg-muted rounded animate-pulse" />
-                      <div className="h-4 bg-muted rounded animate-pulse" />
-                      <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
-                    </div>
-                  )}
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Lessons</h4>
-                  <ul className="space-y-2">
-                    {lessons.map((lesson, index) => (
-                      <li key={lesson.id} className="flex items-center gap-2">
-                        <div className="flex items-center justify-center h-5 w-5 rounded-full bg-muted text-xs">
-                          {index + 1}
-                        </div>
-                        <span className="text-sm">
-                          {lesson.title || `Lesson ${index + 1}`}
+                      ))}
+                      {classes.length === 0 && (
+                        <span className="text-muted-foreground">
+                          No classes found.
                         </span>
-                      </li>
-                    ))}
-                  </ul>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Assign to Individual Students (Coming soon)</Label>
+                    <div className="flex flex-col gap-3 mt-2">
+                      {Object.entries(studentsByClass).map(
+                        ([classId, students]) =>
+                          students.map((student) =>
+                            student ? (
+                              <div
+                                key={student.id}
+                                className="flex items-center gap-4 p-2 bg-muted/30 rounded"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedStudentIds.includes(
+                                    student.id
+                                  )}
+                                  onChange={(e) => {
+                                    setSelectedStudentIds((ids) =>
+                                      e.target.checked
+                                        ? [...ids, student.id]
+                                        : ids.filter((id) => id !== student.id)
+                                    );
+                                  }}
+                                />
+                                <span className="font-medium">
+                                  {student.full_name || student.email}
+                                </span>
+                                {selectedStudentIds.includes(student.id) && (
+                                  <div className="flex items-center gap-2 ml-4">
+                                    <Label
+                                      htmlFor={`due-date-student-${student.id}`}
+                                    >
+                                      Due Date
+                                    </Label>
+                                    <Input
+                                      id={`due-date-student-${student.id}`}
+                                      type="datetime-local"
+                                      className="w-56"
+                                      value={studentDueDates[student.id] || ""}
+                                      onChange={(e) =>
+                                        setStudentDueDates((prev) => ({
+                                          ...prev,
+                                          [student.id]: e.target.value,
+                                        }))
+                                      }
+                                      placeholder="Due date"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            ) : null
+                          )
+                      )}
+                      {Object.values(studentsByClass).flat().length === 0 && (
+                        <span className="text-muted-foreground">
+                          No students found.
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Publishing Options</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger id="status">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="md:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Module Preview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {moduleTitle ? (
+                    <h3 className="font-semibold text-lg">{moduleTitle}</h3>
+                  ) : (
+                    <div className="h-6 bg-muted rounded animate-pulse" />
+                  )}
 
-              <div className="space-y-2">
-                <Label htmlFor="visibility">Visibility</Label>
-                <Select defaultValue="all">
-                  <SelectTrigger id="visibility">
-                    <SelectValue placeholder="Select visibility" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Students</SelectItem>
-                    <SelectItem value="specific">Specific Classes</SelectItem>
-                    <SelectItem value="individual">
-                      Individual Students
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+                  {moduleSubject ? (
+                    <div className="flex items-center gap-2">
+                      <SubjectIcon
+                        subject={moduleSubject as any}
+                        className="h-8 w-8"
+                      />
+                      <span className="capitalize">{moduleSubject}</span>
+                    </div>
+                  ) : (
+                    <div className="h-8 bg-muted rounded animate-pulse" />
+                  )}
+
+                  <Separator />
+
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Description</h4>
+                    {moduleDescription ? (
+                      <p className="text-sm text-muted-foreground">
+                        {moduleDescription}
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="h-4 bg-muted rounded animate-pulse" />
+                        <div className="h-4 bg-muted rounded animate-pulse" />
+                        <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Lessons</h4>
+                    <ul className="space-y-2">
+                      {lessons.map((lesson, index) => (
+                        <li key={lesson.id} className="flex items-center gap-2">
+                          <div className="flex items-center justify-center h-5 w-5 rounded-full bg-muted text-xs">
+                            {index + 1}
+                          </div>
+                          <span className="text-sm">
+                            {lesson.title || `Lesson ${index + 1}`}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Publishing Options</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={status}
+                    onValueChange={setStatus}
+                    disabled={isDemo}
+                  >
+                    <SelectTrigger id="status">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="visibility">Visibility</Label>
+                  <Select defaultValue="all" disabled={isDemo}>
+                    <SelectTrigger id="visibility">
+                      <SelectValue placeholder="Select visibility" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Students</SelectItem>
+                      <SelectItem value="specific">Specific Classes</SelectItem>
+                      <SelectItem value="individual">
+                        Individual Students
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

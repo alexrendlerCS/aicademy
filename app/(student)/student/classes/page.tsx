@@ -24,6 +24,7 @@ import {
 
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
+import { isDemoUser } from "@/lib/utils";
 
 type Class = any & {
   membership: {
@@ -37,7 +38,19 @@ export default function StudentClassesPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [classCode, setClassCode] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const router = useRouter();
+  const isDemo = isDemoUser(currentUser?.id);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     fetchClasses();
@@ -198,60 +211,65 @@ export default function StudentClassesPage() {
           <h1 className="text-3xl font-bold">My Classes</h1>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="mt-2 md:mt-0">
-                <Plus className="mr-2 h-4 w-4" />
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
                 Join Class
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent>
               <DialogHeader>
                 <DialogTitle>Join a Class</DialogTitle>
                 <DialogDescription>
-                  Enter a class code to request to join the class.
+                  Enter the class code provided by your teacher to join a class.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Input
-                    placeholder="Enter class code"
-                    value={classCode}
-                    onChange={(e) => setClassCode(e.target.value)}
-                  />
-                  <Button onClick={joinClassByCode} className="w-full">
-                    Request to Join Class
-                  </Button>
+              {isDemo ? (
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg mb-4">
+                  <p className="text-orange-800">
+                    This is a demo account. Joining classes is disabled, but you
+                    can still explore the interface.
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Enter class code..."
+                      value={classCode}
+                      onChange={(e) => setClassCode(e.target.value)}
+                      disabled={isDemo}
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button onClick={joinClassByCode} disabled={isDemo}>
+                      Request to Join
+                    </Button>
+                  </div>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         </div>
-        {/* Search bar below header row */}
-        <div className="flex items-center gap-4 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search classes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+
+        {/* Search bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search classes..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
-        {loading ? (
-          <div className="text-center py-8">Loading classes...</div>
-        ) : filteredClasses.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-2">
-            <span className="text-lg font-semibold">
-              You are not enrolled in any classes yet.
-            </span>
-            <span className="text-base">
-              Click <span className="font-bold">Join Class</span> to get
-              started!
-            </span>
-          </div>
-        ) : (
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {filteredClasses.map((cls) => (
+
+        {/* Classes grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+            <div className="col-span-full text-center py-8">
+              Loading classes...
+            </div>
+          ) : filteredClasses.length > 0 ? (
+            filteredClasses.map((cls) => (
               <div
                 key={cls.id}
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col gap-3 cursor-pointer hover:scale-105 hover:shadow-2xl transition-all border-2 border-primary/10 focus-within:ring-2 focus-within:ring-primary"
@@ -313,9 +331,13 @@ export default function StudentClassesPage() {
                   Class Code: {cls.code}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          ) : (
+            <div className="col-span-full text-center py-8">
+              <p className="text-muted-foreground">No classes found.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

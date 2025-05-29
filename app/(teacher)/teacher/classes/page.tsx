@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { isDemoUser } from "@/lib/utils";
 
 function generateClassCode() {
   // Simple random code generator (6 alphanumeric chars)
@@ -36,6 +37,18 @@ export default function TeacherClasses() {
   >(null);
   const [refresh, setRefresh] = useState(0);
   const [search, setSearch] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const isDemo = isDemoUser(currentUser?.id);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     const fetchClassesAndMemberships = async () => {
@@ -77,6 +90,10 @@ export default function TeacherClasses() {
   }, [creating, refresh]);
 
   const handleCreateClass = async () => {
+    if (isDemo) {
+      setError("Demo accounts cannot create classes.");
+      return;
+    }
     if (!newClassName.trim()) {
       setError("Class name is required.");
       return;
@@ -106,6 +123,10 @@ export default function TeacherClasses() {
   };
 
   const handleAddStudent = async (classId: string) => {
+    if (isDemo) {
+      setError("Demo accounts cannot add students.");
+      return;
+    }
     if (!studentEmail.trim()) {
       setError("Student email is required.");
       return;
@@ -140,6 +161,7 @@ export default function TeacherClasses() {
   };
 
   const handleApprove = async (membershipId: string) => {
+    if (isDemo) return;
     await supabase
       .from("class_memberships")
       .update({ status: "approved" })
@@ -147,10 +169,12 @@ export default function TeacherClasses() {
     setRefresh((r) => r + 1);
   };
   const handleDeny = async (membershipId: string) => {
+    if (isDemo) return;
     await supabase.from("class_memberships").delete().eq("id", membershipId);
     setRefresh((r) => r + 1);
   };
   const handleRemove = async (membershipId: string) => {
+    if (isDemo) return;
     await supabase.from("class_memberships").delete().eq("id", membershipId);
     setRefresh((r) => r + 1);
   };
@@ -161,6 +185,14 @@ export default function TeacherClasses() {
 
   return (
     <div className="space-y-6">
+      {isDemo && (
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <p className="text-orange-800">
+            This is a demo account. You can explore the interface and see how it
+            works, but you cannot create classes or manage students.
+          </p>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -175,8 +207,9 @@ export default function TeacherClasses() {
               <DialogHeader>
                 <DialogTitle>Create New Class</DialogTitle>
                 <DialogDescription>
-                  Enter a name for your new class. A unique class code will be
-                  generated automatically.
+                  {isDemo
+                    ? "Demo accounts cannot create classes, but you can explore how the interface works."
+                    : "Enter a name for your new class. A unique class code will be generated automatically."}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -187,6 +220,7 @@ export default function TeacherClasses() {
                     value={newClassName}
                     onChange={(e) => setNewClassName(e.target.value)}
                     placeholder="Enter class name..."
+                    disabled={isDemo}
                   />
                 </div>
                 {error && <div className="text-red-500 text-sm">{error}</div>}
@@ -202,7 +236,10 @@ export default function TeacherClasses() {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleCreateClass} disabled={creating}>
+                <Button
+                  onClick={handleCreateClass}
+                  disabled={creating || isDemo}
+                >
                   {creating ? "Creating..." : "Create Class"}
                 </Button>
               </DialogFooter>
@@ -233,25 +270,17 @@ export default function TeacherClasses() {
               (m) => m.status === "approved"
             );
             return (
-              <Card key={cls.id} className="shadow hover:shadow-lg transition">
+              <Card key={cls.id}>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>{cls.name}</CardTitle>
-                    <Badge variant="outline" className="font-mono">
-                      <Users className="h-4 w-4 mr-1 inline" />
-                      {approved.length}
-                    </Badge>
-                  </div>
-                  <div className="mt-2">
-                    <Badge variant="secondary" className="font-mono">
-                      Code: {cls.code}
-                    </Badge>
-                  </div>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>{cls.name}</span>
+                    <Badge variant="outline">{cls.code}</Badge>
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <div className="mb-4">
                     <h4 className="font-semibold flex items-center gap-2">
-                      <Mail className="h-4 w-4" /> Pending Students
+                      <Users className="h-4 w-4" /> Pending Requests
                     </h4>
                     {pending.length === 0 ? (
                       <div className="text-muted-foreground text-sm">None</div>
@@ -266,17 +295,21 @@ export default function TeacherClasses() {
                             </Badge>
                             <Button
                               size="icon"
-                              variant="default"
+                              variant="ghost"
                               onClick={() => handleApprove(m.id)}
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
                               title="Approve"
+                              disabled={isDemo}
                             >
                               <Check className="h-4 w-4" />
                             </Button>
                             <Button
                               size="icon"
-                              variant="destructive"
+                              variant="ghost"
                               onClick={() => handleDeny(m.id)}
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                               title="Deny"
+                              disabled={isDemo}
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -305,6 +338,7 @@ export default function TeacherClasses() {
                               variant="destructive"
                               onClick={() => handleRemove(m.id)}
                               title="Remove"
+                              disabled={isDemo}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -315,8 +349,7 @@ export default function TeacherClasses() {
                   </div>
                   <div>
                     <h4 className="font-semibold flex items-center gap-2">
-                      <Plus className="h-4 w-4" /> Add Student by Email ( Coming
-                      Soon )
+                      <Plus className="h-4 w-4" /> Add Student by Email
                     </h4>
                     <div className="flex gap-2 mt-2">
                       <Input
@@ -326,15 +359,17 @@ export default function TeacherClasses() {
                         }
                         onChange={(e) => setStudentEmail(e.target.value)}
                         disabled={
-                          addingStudentClassId !== null &&
-                          addingStudentClassId !== cls.id
+                          isDemo ||
+                          (addingStudentClassId !== null &&
+                            addingStudentClassId !== cls.id)
                         }
                       />
                       <Button
                         onClick={() => handleAddStudent(cls.id)}
                         disabled={
-                          addingStudentClassId !== null &&
-                          addingStudentClassId !== cls.id
+                          isDemo ||
+                          (addingStudentClassId !== null &&
+                            addingStudentClassId !== cls.id)
                         }
                       >
                         Add

@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { isDemoUser } from "@/lib/utils";
 
 export default function TeacherLayout({
   children,
@@ -36,6 +37,8 @@ export default function TeacherLayout({
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const isDemo = isDemoUser(currentUser?.id);
 
   useEffect(() => {
     async function fetchUser() {
@@ -43,6 +46,7 @@ export default function TeacherLayout({
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
+        setCurrentUser(user);
         setUserName(user.user_metadata?.full_name || user.email || "Teacher");
         setUserEmail(user.email || "");
         setAvatarUrl(user.user_metadata?.avatar_url || null);
@@ -54,6 +58,10 @@ export default function TeacherLayout({
   // Update name handler
   async function handleUpdateName(e: React.FormEvent) {
     e.preventDefault();
+    if (isDemo) {
+      setNameError("Demo accounts cannot update their name");
+      return;
+    }
     setNameLoading(true);
     setNameError("");
     try {
@@ -73,6 +81,10 @@ export default function TeacherLayout({
   // Change password handler
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
+    if (isDemo) {
+      setPasswordError("Demo accounts cannot change their password");
+      return;
+    }
     setPasswordLoading(true);
     setPasswordError("");
     setPasswordSuccess("");
@@ -102,6 +114,10 @@ export default function TeacherLayout({
 
   // Avatar upload handler
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (isDemo) {
+      setAvatarError("Demo accounts cannot change their profile picture");
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     setAvatarUploading(true);
@@ -151,6 +167,13 @@ export default function TeacherLayout({
           <DialogHeader>
             <DialogTitle>Profile</DialogTitle>
           </DialogHeader>
+          {isDemo && (
+            <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <p className="text-orange-800">
+                This is a demo account. You cannot change your profile settings.
+              </p>
+            </div>
+          )}
           <div className="space-y-6 mt-2">
             {/* Avatar upload */}
             <div className="flex flex-col items-center gap-2">
@@ -167,12 +190,13 @@ export default function TeacherLayout({
                 ref={fileInputRef}
                 onChange={handleAvatarChange}
                 id="avatar-upload"
+                disabled={isDemo}
               />
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={avatarUploading}
+                disabled={avatarUploading || isDemo}
               >
                 {avatarUploading ? "Uploading..." : "Change Profile Picture"}
               </Button>
@@ -190,11 +214,12 @@ export default function TeacherLayout({
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="Enter your name"
                     autoFocus
+                    disabled={isDemo}
                   />
                   <Button
                     type="submit"
                     size="sm"
-                    disabled={nameLoading || !newName.trim()}
+                    disabled={nameLoading || !newName.trim() || isDemo}
                   >
                     Save
                   </Button>
@@ -217,6 +242,7 @@ export default function TeacherLayout({
                       setEditingName(true);
                       setNewName(userName);
                     }}
+                    disabled={isDemo}
                   >
                     Edit
                   </Button>
@@ -243,6 +269,7 @@ export default function TeacherLayout({
                 placeholder="New password"
                 minLength={6}
                 required
+                disabled={isDemo}
               />
               <Input
                 type="password"
@@ -251,12 +278,16 @@ export default function TeacherLayout({
                 placeholder="Confirm new password"
                 minLength={6}
                 required
+                disabled={isDemo}
               />
               <Button
                 type="submit"
                 size="sm"
                 disabled={
-                  passwordLoading || !password.trim() || !confirmPassword.trim()
+                  passwordLoading ||
+                  !password.trim() ||
+                  !confirmPassword.trim() ||
+                  isDemo
                 }
               >
                 Update Password

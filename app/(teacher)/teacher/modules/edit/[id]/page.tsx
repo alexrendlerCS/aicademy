@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { isDemoUser } from "@/lib/utils";
 
 export default function EditModulePage({
   params,
@@ -46,6 +47,8 @@ export default function EditModulePage({
   const [error, setError] = useState<string | { message: string } | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const isDemo = isDemoUser(currentUser?.id);
 
   // Module state
   const [moduleTitle, setModuleTitle] = useState("");
@@ -71,6 +74,16 @@ export default function EditModulePage({
   // Track deleted lessons/questions
   const [deletedLessonIds, setDeletedLessonIds] = useState<string[]>([]);
   const [deletedQuestionIds, setDeletedQuestionIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -465,38 +478,49 @@ export default function EditModulePage({
 
   // Render the same UI as the create page, but prefilled and with Save/Update button
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-        <div className="flex items-center gap-2">
+    <div className="container mx-auto py-8 max-w-5xl">
+      {isDemo && (
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <p className="text-orange-800">
+            This is a demo account. Module editing is disabled, but you can
+            explore the interface and see how it works.
+          </p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/teacher/modules">
               <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Back</span>
+              <span className="sr-only">Back to Modules</span>
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Edit Module</h1>
+          <h1 className="text-3xl font-bold">Edit Module</h1>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        <div className="flex gap-2">
           <Button
             onClick={handlePublish}
-            disabled={publishing}
-            className="w-full sm:w-auto"
+            disabled={publishing || isDemo}
+            className="gap-2"
           >
-            <Save className="mr-2 h-4 w-4" />
+            <Save className="h-4 w-4" />
             {publishing ? "Saving..." : "Save Changes"}
           </Button>
           <Button
             variant="destructive"
             size="icon"
             onClick={() => handleDelete(moduleId)}
+            disabled={isDemo}
           >
             <Trash2 className="h-4 w-4" />
             <span className="sr-only">Delete module</span>
           </Button>
         </div>
       </div>
+
       {error && (
-        <div className="text-red-500 mt-2">
+        <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
           {typeof error === "string"
             ? error
             : error && typeof error === "object" && "message" in error
@@ -504,8 +528,12 @@ export default function EditModulePage({
             : ""}
         </div>
       )}
-      {success && <div className="text-green-600 mt-2">{success}</div>}
-      {/* ... reuse the rest of the create page UI, prefilled with state ... */}
+      {success && (
+        <div className="bg-green-50 text-green-600 p-4 rounded-lg mb-6">
+          {success}
+        </div>
+      )}
+
       <div className="grid gap-6 md:grid-cols-6">
         <div className="md:col-span-4 space-y-6">
           <Card>
@@ -520,11 +548,16 @@ export default function EditModulePage({
                   value={moduleTitle}
                   onChange={(e) => setModuleTitle(e.target.value)}
                   placeholder="Enter module title"
+                  disabled={isDemo}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="subject">Subject</Label>
-                <Select value={moduleSubject} onValueChange={setModuleSubject}>
+                <Select
+                  value={moduleSubject}
+                  onValueChange={setModuleSubject}
+                  disabled={isDemo}
+                >
                   <SelectTrigger id="subject">
                     <SelectValue placeholder="Select subject" />
                   </SelectTrigger>
@@ -546,6 +579,7 @@ export default function EditModulePage({
                   onChange={(e) => setModuleDescription(e.target.value)}
                   placeholder="Enter module description"
                   rows={4}
+                  disabled={isDemo}
                 />
               </div>
               <Separator />
@@ -553,187 +587,213 @@ export default function EditModulePage({
                 Assign this module to classes or individual students and set a
                 due date for each assignment.
               </div>
-              <div>
-                <Label>Assign to Classes</Label>
-                <div className="flex flex-col gap-3 mt-2">
-                  {classes.map((cls) => (
-                    <div
-                      key={cls.id}
-                      className="flex items-center gap-4 p-2 bg-muted/30 rounded"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedClassIds.includes(cls.id)}
-                        onChange={(e) => {
-                          setSelectedClassIds((ids) =>
-                            e.target.checked
-                              ? [...ids, cls.id]
-                              : ids.filter((id) => id !== cls.id)
-                          );
-                        }}
-                      />
-                      <span className="font-medium">{cls.name}</span>
-                      {selectedClassIds.includes(cls.id) && (
-                        <div className="flex items-center gap-2 ml-4">
-                          <Label htmlFor={`due-date-class-${cls.id}`}>
-                            Due Date
-                          </Label>
-                          <Input
-                            id={`due-date-class-${cls.id}`}
-                            type="datetime-local"
-                            className="w-56"
-                            value={classDueDates[cls.id] || ""}
-                            onChange={(e) =>
-                              setClassDueDates((prev) => ({
-                                ...prev,
-                                [cls.id]: e.target.value,
-                              }))
-                            }
-                            placeholder="Due date"
-                          />
-                        </div>
-                      )}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Assign Module</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select
+                        value={status}
+                        onValueChange={setStatus}
+                        disabled={isDemo}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="published">Published</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ))}
-                  {classes.length === 0 && (
-                    <span className="text-muted-foreground">
-                      No classes found.
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div>
-                <Label>Assign to Individual Students</Label>
-                <div className="flex flex-col gap-3 mt-2">
-                  {Object.entries(studentsByClass).map(
-                    ([classId, students]) => (
-                      <div key={classId} className="space-y-2">
-                        {students.map((student) =>
-                          student ? (
-                            <div
-                              key={`${classId}-${student.id}`}
-                              className="flex items-center gap-4 p-2 bg-muted/30 rounded"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedStudentIds.includes(
-                                  student.id
-                                )}
-                                onChange={(e) => {
-                                  setSelectedStudentIds((ids) =>
-                                    e.target.checked
-                                      ? [...ids, student.id]
-                                      : ids.filter((id) => id !== student.id)
-                                  );
-                                }}
-                              />
-                              <span className="font-medium">
-                                {student.full_name || student.email}
-                              </span>
-                              {selectedStudentIds.includes(student.id) && (
-                                <div className="flex items-center gap-2 ml-4">
-                                  <Label
-                                    htmlFor={`due-date-student-${student.id}`}
-                                  >
-                                    Due Date
-                                  </Label>
-                                  <Input
-                                    id={`due-date-student-${student.id}`}
-                                    type="datetime-local"
-                                    className="w-56"
-                                    value={studentDueDates[student.id] || ""}
-                                    onChange={(e) =>
-                                      setStudentDueDates((prev) => ({
-                                        ...prev,
-                                        [student.id]: e.target.value,
-                                      }))
-                                    }
-                                    placeholder="Due date"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          ) : null
+                    <div className="space-y-2">
+                      <Label>Assign to Classes</Label>
+                      <div className="flex flex-col gap-3 mt-2">
+                        {classes.map((cls) => (
+                          <div
+                            key={cls.id}
+                            className="flex items-center gap-4 p-2 bg-muted/30 rounded"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedClassIds.includes(cls.id)}
+                              onChange={(e) => {
+                                setSelectedClassIds((ids) =>
+                                  e.target.checked
+                                    ? [...ids, cls.id]
+                                    : ids.filter((id) => id !== cls.id)
+                                );
+                              }}
+                              disabled={isDemo}
+                            />
+                            <span className="font-medium">{cls.name}</span>
+                            {selectedClassIds.includes(cls.id) && (
+                              <div className="flex items-center gap-2 ml-4">
+                                <Label htmlFor={`due-date-class-${cls.id}`}>
+                                  Due Date
+                                </Label>
+                                <Input
+                                  id={`due-date-class-${cls.id}`}
+                                  type="datetime-local"
+                                  className="w-56"
+                                  value={classDueDates[cls.id] || ""}
+                                  onChange={(e) =>
+                                    setClassDueDates((prev) => ({
+                                      ...prev,
+                                      [cls.id]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Due date"
+                                  disabled={isDemo}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {classes.length === 0 && (
+                          <span className="text-muted-foreground">
+                            No classes found.
+                          </span>
                         )}
                       </div>
-                    )
-                  )}
-                  {Object.values(studentsByClass).flat().length === 0 && (
-                    <span className="text-muted-foreground">
-                      No students found.
-                    </span>
-                  )}
-                </div>
-              </div>
+                    </div>
+                    <div>
+                      <Label>Assign to Individual Students</Label>
+                      <div className="flex flex-col gap-3 mt-2">
+                        {Object.entries(studentsByClass).map(
+                          ([classId, students]) =>
+                            students.map((student) =>
+                              student ? (
+                                <div
+                                  key={`${classId}-${student.id}`}
+                                  className="flex items-center gap-4 p-2 bg-muted/30 rounded"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedStudentIds.includes(
+                                      student.id
+                                    )}
+                                    onChange={(e) => {
+                                      setSelectedStudentIds((ids) =>
+                                        e.target.checked
+                                          ? [...ids, student.id]
+                                          : ids.filter(
+                                              (id) => id !== student.id
+                                            )
+                                      );
+                                    }}
+                                    disabled={isDemo}
+                                  />
+                                  <span className="font-medium">
+                                    {student.full_name || student.email}
+                                  </span>
+                                  {selectedStudentIds.includes(student.id) && (
+                                    <div className="flex items-center gap-2 ml-4">
+                                      <Label
+                                        htmlFor={`due-date-student-${student.id}`}
+                                      >
+                                        Due Date
+                                      </Label>
+                                      <Input
+                                        id={`due-date-student-${student.id}`}
+                                        type="datetime-local"
+                                        className="w-56"
+                                        value={
+                                          studentDueDates[student.id] || ""
+                                        }
+                                        onChange={(e) =>
+                                          setStudentDueDates((prev) => ({
+                                            ...prev,
+                                            [student.id]: e.target.value,
+                                          }))
+                                        }
+                                        placeholder="Due date"
+                                        disabled={isDemo}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              ) : null
+                            )
+                        )}
+                        {Object.values(studentsByClass).flat().length === 0 && (
+                          <span className="text-muted-foreground">
+                            No students found.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Lessons</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addLesson}
+                disabled={isDemo}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Lesson
+              </Button>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Accordion type="multiple" className="w-full">
+            <CardContent>
+              <Accordion type="single" collapsible className="w-full">
                 {lessons.map((lesson, index) => (
-                  <AccordionItem
-                    key={lesson.id || index}
-                    value={lesson.id || `new-${index}`}
-                  >
+                  <AccordionItem key={lesson.id} value={lesson.id}>
                     <AccordionTrigger className="hover:no-underline">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center h-6 w-6 rounded-full bg-muted text-sm font-medium">
-                          {index + 1}
-                        </div>
+                      <div className="flex items-center gap-4">
+                        <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
                         <span>{lesson.title || `Lesson ${index + 1}`}</span>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="space-y-4 pt-2">
-                        <div className="flex items-center gap-2">
-                          <GripVertical className="h-5 w-5 text-muted-foreground" />
-                          <div className="space-y-2 flex-1">
-                            <Label
-                              htmlFor={`lesson-title-${lesson.id || index}`}
-                            >
-                              Lesson Title
-                            </Label>
+                      <div className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                          <Label>Lesson Title</Label>
+                          <div className="flex gap-2">
                             <Input
-                              id={`lesson-title-${lesson.id || index}`}
                               value={lesson.title}
                               onChange={(e) =>
                                 updateLesson(lesson.id, "title", e.target.value)
                               }
-                              placeholder={`Lesson ${index + 1} Title`}
+                              placeholder={`Lesson ${index + 1}`}
+                              disabled={isDemo}
                             />
+                            {lessons.length > 1 && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => removeLesson(lesson.id)}
+                                disabled={isDemo}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="self-end text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => removeLesson(lesson.id)}
-                            disabled={lessons.length === 1}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Remove lesson</span>
-                          </Button>
                         </div>
                         <div className="space-y-2">
-                          <Label
-                            htmlFor={`lesson-content-${lesson.id || index}`}
-                          >
-                            Lesson Content
-                          </Label>
-                          <div className="border rounded-md">
-                            <RichTextEditor
-                              content={lesson.content}
-                              onChange={(value) =>
-                                updateLesson(lesson.id, "content", value)
-                              }
-                              placeholder={`Enter content for Lesson ${
-                                index + 1
-                              }...`}
-                            />
-                          </div>
+                          <Label>Content</Label>
+                          <RichTextEditor
+                            content={lesson.content}
+                            onChange={(value) =>
+                              updateLesson(lesson.id, "content", value)
+                            }
+                            placeholder={`Enter content for Lesson ${
+                              index + 1
+                            }...`}
+                            editable={!isDemo}
+                          />
                         </div>
+                        <Separator className="my-4" />
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <Label>Quiz Questions</Label>
@@ -741,8 +801,10 @@ export default function EditModulePage({
                               variant="outline"
                               size="sm"
                               onClick={() => addQuizQuestion(lesson.id)}
+                              disabled={isDemo}
+                              className="gap-2"
                             >
-                              <Plus className="h-3.5 w-3.5 mr-1" />
+                              <Plus className="h-4 w-4" />
                               Add Question
                             </Button>
                           </div>
@@ -751,7 +813,7 @@ export default function EditModulePage({
                               {lesson.quizQuestions.map(
                                 (question: any, qIndex: number) => (
                                   <div
-                                    key={question.id || qIndex}
+                                    key={question.id}
                                     className="space-y-4 border rounded-md p-4"
                                   >
                                     <div className="flex items-center justify-between">
@@ -768,6 +830,7 @@ export default function EditModulePage({
                                             question.id
                                           )
                                         }
+                                        disabled={isDemo}
                                       >
                                         <Trash2 className="h-4 w-4" />
                                         <span className="sr-only">
@@ -775,17 +838,10 @@ export default function EditModulePage({
                                         </span>
                                       </Button>
                                     </div>
+
                                     <div className="space-y-2">
-                                      <Label
-                                        htmlFor={`question-${
-                                          lesson.id || index
-                                        }-${question.id || qIndex}`}
-                                      >
-                                        Question
-                                      </Label>
+                                      <Label>Question</Label>
                                       <Input
-                                        id={`question-${lesson.id || index}-$
-                                        {question.id || qIndex}`}
                                         value={question.question}
                                         onChange={(e) =>
                                           updateQuizQuestion(
@@ -796,8 +852,10 @@ export default function EditModulePage({
                                           )
                                         }
                                         placeholder="Enter question"
+                                        disabled={isDemo}
                                       />
                                     </div>
+
                                     <div className="space-y-2">
                                       <Label>Question Type</Label>
                                       <Select
@@ -807,9 +865,10 @@ export default function EditModulePage({
                                             lesson.id,
                                             question.id,
                                             "type",
-                                            val
+                                            val as any
                                           )
                                         }
+                                        disabled={isDemo}
                                       >
                                         <SelectTrigger>
                                           <SelectValue />
@@ -824,6 +883,7 @@ export default function EditModulePage({
                                         </SelectContent>
                                       </Select>
                                     </div>
+
                                     {question.type === "multiple_choice" ? (
                                       <div className="space-y-3">
                                         <Label>Answer Options</Label>
@@ -835,14 +895,7 @@ export default function EditModulePage({
                                             >
                                               <input
                                                 type="radio"
-                                                id={`option-${
-                                                  lesson.id || index
-                                                }-${
-                                                  question.id || qIndex
-                                                }-${oIndex}`}
-                                                name={`question-${
-                                                  lesson.id || index
-                                                }-${question.id || qIndex}`}
+                                                name={`question-${lesson.id}-${question.id}`}
                                                 checked={
                                                   question.correctOption ===
                                                   oIndex
@@ -855,7 +908,7 @@ export default function EditModulePage({
                                                     oIndex
                                                   )
                                                 }
-                                                className="h-4 w-4 text-primary"
+                                                disabled={isDemo}
                                               />
                                               <Input
                                                 value={option}
@@ -870,7 +923,7 @@ export default function EditModulePage({
                                                 placeholder={`Option ${
                                                   oIndex + 1
                                                 }`}
-                                                className="flex-1"
+                                                disabled={isDemo}
                                               />
                                             </div>
                                           )
@@ -892,6 +945,7 @@ export default function EditModulePage({
                                             )
                                           }
                                           placeholder="Enter the correct answer"
+                                          disabled={isDemo}
                                         />
                                       </div>
                                     )}
@@ -910,10 +964,6 @@ export default function EditModulePage({
                   </AccordionItem>
                 ))}
               </Accordion>
-              <Button variant="outline" className="w-full" onClick={addLesson}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Lesson
-              </Button>
             </CardContent>
           </Card>
         </div>
