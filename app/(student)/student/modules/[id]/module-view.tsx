@@ -1009,7 +1009,8 @@ Sign up for a full account to access the AI tutor!`,
                                 );
                               }
                               // Check if this is the "Would you like to:" section
-                              if (text.startsWith("Would you like to:")) {
+                              if (/^would you like( me)? to:/i.test(text)) {
+
                                 return (
                                   <div className="mb-4">
                                     <p className="mb-2">

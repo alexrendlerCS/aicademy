@@ -45,7 +45,9 @@ function ensureMarkdownFormatting(content: string): string {
       const bulletPoints = trimmed.split(/(?=\s*[•-])/);
       bulletPoints.forEach((point) => {
         if (point.trim()) {
-          sections.followUp.push(point.trim().replace(/^[•-]\s*/, "• "));
+          // Normalize to markdown orange bullet
+          const text = point.trim().replace(/^[•-]\s*/, "").trim();
+          sections.followUp.push(`• ${text}`);
         }
       });
     } else if (
@@ -59,7 +61,22 @@ function ensureMarkdownFormatting(content: string): string {
   }
 
   // Format response with proper markdown
-  let formattedResponse = `### ${sections.topic || "Functions"}
+  let followUpSection = "";
+
+if (sections.followUp.length === 1) {
+  const one = sections.followUp[0].replace(/^•\s*/, "").trim();
+  followUpSection = `Would you like me to show you ${one
+    .charAt(0)
+    .toLowerCase()}${one.slice(1)}`;
+} else if (sections.followUp.length > 1) {
+  followUpSection = `Would you like me to:\n\n${sections.followUp
+    .map((q) => `• ${q.replace(/^•\s*/, "").trim()}`)
+    .join("\n")}`;
+} else {
+  followUpSection = `Would you like me to:\n\n• Show you a practical example?\n• Help you understand related concepts?\n• Explore how this works in a real project?`;
+}
+
+let formattedResponse = `### ${sections.topic || "Functions"}
 ${sections.answer || "Let me explain this concept"}
 
 ${
@@ -68,20 +85,15 @@ ${
     : `> **From the lesson:**\n> This concept helps make your code more organized and efficient`
 }
 
-Would you like to:
-${
-  sections.followUp.length > 0
-    ? sections.followUp.join("\n")
-    : `• See a practical example?\n• Learn more about specific use cases?\n• Explore how this applies to your code?`
-}`;
+${followUpSection}`;
 
-  // Ensure proper spacing between sections and bullet points
-  formattedResponse = formattedResponse
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/([•-].*?)([•-])/g, "$1\n$2")
-    .replace(/Would you like to:\n?([^•\n])/g, "Would you like to:\n$1");
+// Ensure proper spacing between sections
+formattedResponse = formattedResponse
+  .replace(/\n{3,}/g, "\n\n")
+  .replace(/([•-].*?)([•-])/g, "$1\n$2");
 
-  return formattedResponse;
+return formattedResponse;
+
 }
 
 export async function POST(req: NextRequest) {
