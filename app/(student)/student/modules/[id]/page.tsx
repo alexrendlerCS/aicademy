@@ -54,28 +54,47 @@ export default function ModulePage() {
           .eq("module_id", params.id)
           .single();
 
-        // Check if student has access through class membership and module assignments
-        const { data: moduleAccess, error: accessError } = await supabase
+        // Check if student has access through class membership using subject-based logic
+        const { data: classesData, error: accessError } = await supabase
           .from("class_memberships")
           .select(
             `
             *,
-            classes!inner(
-              module_assignments!inner(*)
-            )
+            classes!inner(*)
           `
           )
           .eq("student_id", userData.user.id)
-          .eq("status", "approved")
-          .eq("classes.module_assignments.module_id", params.id);
+          .eq("status", "approved");
 
         if (accessError) {
           console.error("Error checking module access:", accessError);
           return;
         }
 
-        if (!moduleAccess || moduleAccess.length === 0) {
-          console.error("No access to this module");
+        // Check if any of the student's classes should have access to this module based on subject
+        let hasAccess = false;
+        if (classesData && classesData.length > 0 && moduleData) {
+          for (const membership of classesData) {
+            const cls = membership.classes;
+            const classSubject = cls.name.toLowerCase();
+            const moduleSubject = moduleData.subject;
+            
+            // Use same subject matching logic as other pages
+            if (
+              (classSubject.includes('math') && moduleSubject === 'math') ||
+              (classSubject.includes('reading') && moduleSubject === 'reading') ||
+              (classSubject.includes('literacy') && moduleSubject === 'reading') ||
+              (classSubject.includes('science') && moduleSubject === 'science') ||
+              (classSubject.includes('ai') && moduleSubject === 'Computer Science')
+            ) {
+              hasAccess = true;
+              break;
+            }
+          }
+        }
+
+        if (!hasAccess) {
+          console.error("No access to this module - not assigned to any of student's classes");
           return;
         }
 

@@ -91,76 +91,59 @@ export default function StudentDashboard() {
 
       if (!classes?.length) return;
 
-      // For each class, calculate progress
-      const progressPromises = classes.map(async (cls) => {
-        // Get all module assignments for this class
-        const { data: moduleAssignments } = await supabase
-          .from("module_assignments")
-          .select(
-            `
-            module_id,
-            modules (
-              id,
-              lessons (
-                id,
-                quiz_questions (
-                  id,
-                  type,
-                  attempt:quiz_attempts (
-                    selected_index,
-                    answer_text
-                  )
-                )
-              )
-            )
-          `
-          )
-          .eq("class_id", cls.id);
+      // Get all modules for progress calculation
+      const { data: allModules } = await supabase
+        .from("modules")
+        .select("*");
 
-        if (!moduleAssignments?.length) {
-          return {
-            id: cls.id,
-            name: cls.name,
-            progress: 0,
-            totalQuizzes: 0,
-            completedQuizzes: 0,
-          };
+      // For each class, calculate progress based on lesson completion
+      const progressPromises = classes.map(async (cls) => {
+        const classSubject = cls.name.toLowerCase();
+        let relevantModules = [];
+        
+        // Use same logic as module display
+        if (classSubject.includes('math')) {
+          relevantModules = allModules?.filter(m => m.subject === 'math') || [];
+        } else if (classSubject.includes('reading') || classSubject.includes('literacy')) {
+          relevantModules = allModules?.filter(m => m.subject === 'reading') || [];
+        } else if (classSubject.includes('science')) {
+          relevantModules = allModules?.filter(m => m.subject === 'science') || [];
+        } else if (classSubject.includes('ai')) {
+          relevantModules = allModules?.filter(m => m.subject === 'Computer Science') || [];
+        } else {
+          relevantModules = allModules?.slice(0, 3) || [];
         }
 
-        let totalQuestions = 0;
-        let completedQuestions = 0;
+        let totalLessons = 0;
+        let completedLessons = 0;
 
-        // Calculate total questions and completed questions across all modules
-        moduleAssignments.forEach((assignment) => {
-          assignment.modules?.lessons?.forEach((lesson) => {
-            if (lesson.quiz_questions) {
-              lesson.quiz_questions.forEach((question) => {
-                totalQuestions++;
-                if (question.attempt?.length > 0) {
-                  const attempt = question.attempt[0];
-                  if (
-                    (attempt.selected_index !== null &&
-                      attempt.selected_index !== undefined) ||
-                    (attempt.answer_text &&
-                      attempt.answer_text.trim().length > 0)
-                  ) {
-                    completedQuestions++;
-                  }
-                }
-              });
-            }
-          });
-        });
+        // Calculate progress for each relevant module
+        await Promise.all(relevantModules.map(async (module) => {
+          // Get all lessons for this module
+          const { data: allLessons } = await supabase
+            .from("lessons")
+            .select("id")
+            .eq("module_id", module.id);
 
-        const progress =
-          totalQuestions > 0 ? (completedQuestions / totalQuestions) * 100 : 0;
+          // Get lesson progress for this student and module
+          const { data: directProgress } = await supabase
+            .from("lesson_progress")
+            .select("*, lessons!inner(module_id)")
+            .eq("student_id", userId)
+            .eq("lessons.module_id", module.id);
+
+          totalLessons += allLessons?.length || 0;
+          completedLessons += directProgress?.filter(lp => lp.completed)?.length || 0;
+        }));
+
+        const progress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
 
         return {
           id: cls.id,
           name: cls.name,
           progress,
-          totalQuizzes: totalQuestions,
-          completedQuizzes: completedQuestions,
+          totalQuizzes: totalLessons, // Renamed to reflect lessons instead of quizzes
+          completedQuizzes: completedLessons,
         };
       });
 
@@ -186,6 +169,13 @@ export default function StudentDashboard() {
           setLoading(false);
           return;
         }
+
+        // Debug logging for user authentication
+        console.log("=== DEBUG: Student Dashboard User ===");
+        console.log("User ID:", userData.user.id);
+        console.log("User Email:", userData.user.email);
+        console.log("User object:", userData.user);
+        console.log("====================================");
 
         setUser(userData.user);
         const userId = userData.user.id;
@@ -214,22 +204,38 @@ export default function StudentDashboard() {
 
         console.log("Raw classes data:", classes);
 
+        // First, fetch all modules
+        const { data: allModules } = await supabase
+          .from("modules")
+          .select("*");
+        console.log("allModules", allModules);
+
         // For each class, fetch module count
         const classesWithModules = await Promise.all(
           (classes || []).map(async (cls) => {
             console.log("Processing class:", cls);
             console.log("Teacher data:", cls.users);
-            // Count modules assigned to this class
-            const { count: moduleCount } = await supabase
-              .from("module_assignments")
-              .select("id", { count: "exact", head: true })
-              .eq("class_id", cls.id);
+            // Calculate module count based on subject matching (same logic as module display)
+            const classSubject = cls.name.toLowerCase();
+            let moduleCount = 0;
+            
+            if (classSubject.includes('math')) {
+              moduleCount = allModules?.filter(m => m.subject === 'math')?.length || 0;
+            } else if (classSubject.includes('reading') || classSubject.includes('literacy')) {
+              moduleCount = allModules?.filter(m => m.subject === 'reading')?.length || 0;
+            } else if (classSubject.includes('science')) {
+              moduleCount = allModules?.filter(m => m.subject === 'science')?.length || 0;
+            } else if (classSubject.includes('ai')) {
+              moduleCount = allModules?.filter(m => m.subject === 'Computer Science')?.length || 0;
+            } else {
+              moduleCount = Math.min(3, allModules?.length || 0);
+            }
 
             const classData = {
               ...cls,
               membership: cls.class_memberships[0],
               teacherName: cls.users?.full_name || "Unknown Teacher",
-              moduleCount: moduleCount || 0,
+              moduleCount: moduleCount,
             };
 
             console.log("Processed class data:", classData);
@@ -237,59 +243,106 @@ export default function StudentDashboard() {
           })
         );
 
-        // Get progress for each module
+        // Get all modules and assign them based on class subject/teacher
         const modulesWithProgress = await Promise.all(
           (classesWithModules || []).map(async (cls) => {
-            // First get all module assignments for this class
-            const { data: moduleAssignments } = await supabase
-              .from("module_assignments")
-              .select(
-                "*, modules(*, lessons(*, quiz_questions(id, attempt:quiz_attempts(selected_index, answer_text))))"
-              )
-              .eq("class_id", cls.id);
+            console.log("Processing class:", cls.name, "ID:", cls.id);
+            
+            // Get modules that should belong to this class
+            // For demo purposes, let's assign modules based on subject matching or teacher
+            const classSubject = cls.name.toLowerCase();
+            let relevantModules = [];
+            
+            if (classSubject.includes('math')) {
+              relevantModules = allModules?.filter(m => m.subject === 'math') || [];
+            } else if (classSubject.includes('reading') || classSubject.includes('literacy')) {
+              relevantModules = allModules?.filter(m => m.subject === 'reading') || [];
+            } else if (classSubject.includes('science')) {
+              relevantModules = allModules?.filter(m => m.subject === 'science') || [];
+            } else if (classSubject.includes('ai')) {
+              relevantModules = allModules?.filter(m => m.subject === 'Computer Science') || [];
+            } else {
+              // Default: assign 3-4 random modules for demo
+              relevantModules = allModules?.slice(0, 3) || [];
+            }
+            
+            console.log(`Relevant modules for ${cls.name}:`, relevantModules.map(m => m.title));
 
-            // Map each module assignment to include progress
-            const modulePromises = (moduleAssignments || []).map(
-              async (assignment) => {
-                // Calculate progress based on completed questions
-                let totalQuestions = 0;
-                let completedQuestions = 0;
+            // First, check if there's any lesson progress for this user at all
+            const { data: allUserProgress } = await supabase
+              .from("lesson_progress")
+              .select("*")
+              .eq("student_id", userId)
+              .limit(10);
+            console.log(`User ${userId} has lesson progress entries:`, allUserProgress?.length || 0);
+            
+            // Show first few entries
+            if (allUserProgress && allUserProgress.length > 0) {
+              console.log("Sample lesson progress:", allUserProgress.slice(0, 3));
+              
+              // Check if we can get lesson info for these progress entries
+              const sampleLessonIds = allUserProgress.slice(0, 3).map(lp => lp.lesson_id);
+              const { data: sampleLessons } = await supabase
+                .from("lessons")
+                .select("id, title, module_id")
+                .in("id", sampleLessonIds);
+              console.log("Sample lessons:", sampleLessons);
+            }
 
-                assignment.modules?.lessons?.forEach((lesson) => {
-                  if (lesson.quiz_questions) {
-                    totalQuestions += lesson.quiz_questions.length;
-                    lesson.quiz_questions.forEach((question) => {
-                      if (question.attempt?.length > 0) {
-                        const attempt = question.attempt[0];
-                        if (
-                          (attempt.selected_index !== null &&
-                            attempt.selected_index !== undefined) ||
-                          (attempt.answer_text &&
-                            attempt.answer_text.trim().length > 0)
-                        ) {
-                          completedQuestions++;
-                        }
-                      }
-                    });
-                  }
-                });
+            // Map each relevant module and calculate progress from lesson_progress table
+            const modulePromises = relevantModules.map(async (module) => {
+              // Get lessons for this module with lesson progress joined
+              const { data: lessonsWithProgress } = await supabase
+                .from("lessons")
+                .select(`
+                  *,
+                  lesson_progress!inner(
+                    id,
+                    completed,
+                    completed_at,
+                    student_id
+                  )
+                `)
+                .eq("module_id", module.id)
+                .eq("lesson_progress.student_id", userId);
 
-                const progress =
-                  totalQuestions > 0 ? completedQuestions / totalQuestions : 0;
-                const isCompleted = progress === 1;
+              console.log(`Module "${module.title}" lessons with progress:`, lessonsWithProgress?.length || 0);
 
-                return {
-                  ...assignment.modules,
-                  class: cls,
-                  progress: {
-                    completed_at: isCompleted ? new Date().toISOString() : null,
-                    progress: progress,
-                  },
-                  due_date: assignment.due_date || null,
-                  lessonCount: assignment.modules?.lessons?.length || 0,
-                };
-              }
-            );
+              // Also get all lessons for this module (to know total count)
+              const { data: allLessons } = await supabase
+                .from("lessons")
+                .select("id")
+                .eq("module_id", module.id);
+
+              const totalLessons = allLessons?.length || 0;
+              
+              // Get lesson progress directly and count completed ones
+              const { data: directProgress } = await supabase
+                .from("lesson_progress")
+                .select("*, lessons!inner(module_id)")
+                .eq("student_id", userId)
+                .eq("lessons.module_id", module.id);
+
+              
+              // Count actually completed lessons
+              const completedLessons = directProgress?.filter(lp => lp.completed)?.length || 0;
+
+              const progress = totalLessons > 0 ? completedLessons / totalLessons : 0;
+              const isCompleted = progress === 1;
+
+              console.log(`Module "${module.title}": ${completedLessons}/${totalLessons} completed = ${Math.round(progress * 100)}%`);
+
+              return {
+                ...module,
+                class: cls,
+                progress: {
+                  completed_at: isCompleted ? new Date().toISOString() : null,
+                  progress: progress,
+                },
+                due_date: null,
+                lessonCount: totalLessons,
+              };
+            });
 
             return Promise.all(modulePromises);
           })
@@ -315,15 +368,7 @@ export default function StudentDashboard() {
           .eq("student_id", userId);
         setAchievements(userAchievements || []);
 
-        // DEBUG: Log all module assignments and modules
-        const { data: debugAssignments } = await supabase
-          .from("module_assignments")
-          .select("*");
-        console.log("allAssignments", debugAssignments);
-        const { data: debugModules } = await supabase
-          .from("modules")
-          .select("*");
-        console.log("allModules", debugModules);
+        // All module assignments logic removed - now using subject-based assignment
       } catch (error) {
         console.error("Error in fetchData:", error);
         setError(error instanceof Error ? error.message : "An error occurred");
@@ -479,8 +524,8 @@ export default function StudentDashboard() {
                         {cls.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {cls.completedQuizzes} of {cls.totalQuizzes} quiz
-                        questions completed
+                        {cls.completedQuizzes} of {cls.totalQuizzes} lessons
+                        completed
                       </p>
                     </div>
                     <div className="font-medium text-sm">
@@ -551,7 +596,7 @@ export default function StudentDashboard() {
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col gap-3 hover:scale-105 hover:shadow-2xl transition-all border-2 border-primary/10 focus-within:ring-2 focus-within:ring-primary">
                   <div className="flex items-center gap-4 mb-2">
                     <SubjectIcon
-                      subject={module.subject || "math"}
+                      subject={module.title || "math"}
                       className="h-12 w-12"
                     />
                     <div className="flex-1">
@@ -578,7 +623,7 @@ export default function StudentDashboard() {
                   <ProgressBar
                     value={progress * 100}
                     max={100}
-                    color={module.subject || "primary"}
+                    color={module.title || "primary"}
                   />
                   <div className="flex items-center gap-2 bg-muted/40 rounded px-2 py-1 mt-2 w-fit text-xs text-muted-foreground">
                     <svg
@@ -654,7 +699,7 @@ export default function StudentDashboard() {
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col gap-3 hover:scale-105 hover:shadow-2xl transition-all border-2 border-primary/10 focus-within:ring-2 focus-within:ring-primary">
                   <div className="flex items-center gap-4 mb-2">
                     <SubjectIcon
-                      subject={module.subject || "math"}
+                      subject={module.title || "math"}
                       className="h-12 w-12"
                     />
                     <div className="flex-1">
@@ -679,7 +724,7 @@ export default function StudentDashboard() {
                   <ProgressBar
                     value={0}
                     max={100}
-                    color={module.subject || "primary"}
+                    color={module.title || "primary"}
                   />
                   <div className="flex items-center gap-2 bg-muted/40 rounded px-2 py-1 mt-2 w-fit text-xs text-muted-foreground">
                     <svg
@@ -756,7 +801,7 @@ export default function StudentDashboard() {
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col gap-3 hover:scale-105 hover:shadow-2xl transition-all border-2 border-primary/10 focus-within:ring-2 focus-within:ring-primary">
                   <div className="flex items-center gap-4 mb-2">
                     <SubjectIcon
-                      subject={module.subject || "math"}
+                      subject={module.title || "math"}
                       className="h-12 w-12"
                     />
                     <div className="flex-1">
@@ -781,7 +826,7 @@ export default function StudentDashboard() {
                   <ProgressBar
                     value={progress * 100}
                     max={100}
-                    color={module.subject || "primary"}
+                    color={module.title || "primary"}
                   />
                   <div className="flex items-center gap-2 bg-muted/40 rounded px-2 py-1 mt-2 w-fit text-xs text-muted-foreground">
                     <svg

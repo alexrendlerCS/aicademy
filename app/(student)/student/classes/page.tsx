@@ -63,16 +63,52 @@ export default function StudentClassesPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch classes with teacher name using the class_with_teacher view
+      // Debug logging for user authentication
+      console.log("=== DEBUG: Current logged in user ===");
+      console.log("User ID:", user.id);
+      console.log("User Email:", user.email);
+      console.log("User object:", user);
+      console.log("======================================");
+
+      // First, get the class memberships for this student
+      console.log("=== DEBUG: Querying class memberships ===");
+      console.log("Query params - student_id:", user.id, "status: approved");
+      
+      const { data: memberships, error: membershipError } = await supabase
+        .from("class_memberships")
+        .select("class_id, status")
+        .eq("student_id", user.id)
+        .eq("status", "approved");
+
+      console.log("Memberships query result:", memberships);
+      console.log("Memberships query error:", membershipError);
+
+      if (membershipError) {
+        console.error("Membership query error:", membershipError);
+        throw membershipError;
+      }
+
+      if (!memberships || memberships.length === 0) {
+        console.log("No approved class memberships found");
+        // Let's also try without the status filter to see if that's the issue
+        console.log("=== DEBUG: Trying query without status filter ===");
+        const { data: allMemberships } = await supabase
+          .from("class_memberships")
+          .select("class_id, status")
+          .eq("student_id", user.id);
+        console.log("All memberships (no status filter):", allMemberships);
+        
+        setClasses([]);
+        return;
+      }
+
+      const classIds = memberships.map(m => m.class_id);
+
+      // Then fetch the class details with teacher info
       const { data: classes, error } = await supabase
         .from("class_with_teacher")
-        .select(
-          `
-          *,
-          class_memberships!inner(status)
-        `
-        )
-        .eq("class_memberships.student_id", user.id);
+        .select("*")
+        .in("id", classIds);
 
       if (error) {
         console.error("Query error:", error);
@@ -81,22 +117,41 @@ export default function StudentClassesPage() {
 
       console.log("Raw classes data from query:", classes);
 
-      // For each class, fetch module count
+      // First, fetch all modules to use subject-based assignment
+      const { data: allModules } = await supabase
+        .from("modules")
+        .select("*");
+
+      // For each class, calculate module count based on subject and add membership info
       const classesWithModules = await Promise.all(
         (classes || []).map(async (cls) => {
           console.log("Processing class:", cls);
 
-          // Count modules assigned to this class
-          const { count: moduleCount } = await supabase
-            .from("module_assignments")
-            .select("id", { count: "exact", head: true })
-            .eq("class_id", cls.id);
+          // Find the membership for this class
+          const membership = memberships.find(m => m.class_id === cls.id);
+
+          // Calculate module count based on class subject (same logic as dashboard)
+          let moduleCount = 0;
+          if (cls.subject === 'math') {
+            moduleCount = allModules?.filter(m => m.subject === 'math')?.length || 0;
+          } else if (cls.subject === 'reading') {
+            moduleCount = allModules?.filter(m => m.subject === 'reading')?.length || 0;
+          } else if (cls.subject === 'science') {
+            moduleCount = allModules?.filter(m => m.subject === 'science')?.length || 0;
+          } else if (cls.subject === 'Computer Science') {
+            moduleCount = allModules?.filter(m => m.subject === 'Computer Science')?.length || 0;
+          } else {
+            // For other subjects, show first 3 modules as default
+            moduleCount = Math.min(3, allModules?.length || 0);
+          }
+
+          console.log(`Class "${cls.name}" (${cls.subject}): ${moduleCount} modules`);
 
           const processedClass = {
             ...cls,
-            membership: cls.class_memberships[0],
+            membership: { status: membership?.status || "approved" },
             teacherName: cls.teacher_name || "Unknown Teacher",
-            moduleCount: moduleCount || 0,
+            moduleCount: moduleCount,
           };
 
           console.log("Processed class with teacher:", processedClass);

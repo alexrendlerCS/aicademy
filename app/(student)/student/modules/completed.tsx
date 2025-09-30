@@ -38,31 +38,46 @@ export default function CompletedModulesPage() {
         .eq("status", "approved");
       const approvedClassIds = (memberships || []).map((m) => m.class_id);
 
-      // 2. Get all module assignments for those classes or directly to the student
-      let moduleAssignmentsQuery = supabase
-        .from("module_assignments")
-        .select("module_id");
+      // 2. Get class details
+      let classesData: any[] = [];
       if (approvedClassIds.length > 0) {
-        moduleAssignmentsQuery = moduleAssignmentsQuery.or(
-          `class_id.in.(${approvedClassIds.join(",")}),student_id.eq.${userId}`
-        );
-      } else {
-        moduleAssignmentsQuery = moduleAssignmentsQuery.eq(
-          "student_id",
-          userId
-        );
-      }
-      const { data: moduleAssignments } = await moduleAssignmentsQuery;
-      const moduleIds = (moduleAssignments || []).map((ma) => ma.module_id);
-
-      // 3. Get the modules
-      let modulesData: any[] = [];
-      if (moduleIds.length > 0) {
-        const { data: modulesResult } = await supabase
-          .from("modules")
+        const { data: classes } = await supabase
+          .from("classes")
           .select("*")
-          .in("id", moduleIds);
-        modulesData = modulesResult || [];
+          .in("id", approvedClassIds);
+        classesData = classes || [];
+      }
+
+      // 3. Get all modules and assign them to classes based on subject matching
+      const { data: allModules } = await supabase
+        .from("modules")
+        .select("*");
+
+      let modulesData: any[] = [];
+
+      // For each class, assign modules based on subject matching
+      if (classesData && allModules) {
+        classesData.forEach((cls) => {
+          const classSubject = cls.name.toLowerCase();
+          let relevantModules = [];
+          
+          if (classSubject.includes('math')) {
+            relevantModules = allModules.filter(m => m.subject === 'math') || [];
+          } else if (classSubject.includes('reading') || classSubject.includes('literacy')) {
+            relevantModules = allModules.filter(m => m.subject === 'reading') || [];
+          } else if (classSubject.includes('science')) {
+            relevantModules = allModules.filter(m => m.subject === 'science') || [];
+          } else if (classSubject.includes('ai')) {
+            relevantModules = allModules.filter(m => m.subject === 'Computer Science') || [];
+          }
+          
+          // Add these modules to the student's module list
+          relevantModules.forEach((module) => {
+            if (!modulesData.some(m => m.id === module.id)) {
+              modulesData.push(module);
+            }
+          });
+        });
       }
 
       // 4. Get progress for each module
