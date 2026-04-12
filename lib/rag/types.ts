@@ -45,7 +45,8 @@ export interface SearchParams {
 }
 
 export interface EmbeddingResult {
-  embedding: number[];
-  model: string;
-  tokensUsed: number;
+  text: string;           // Original text that was embedded
+  embedding: number[];    // Vector embedding
+  index: number;          // Index in batch (for tracking)
+  error?: string;         // Error message if embedding failed
 }
