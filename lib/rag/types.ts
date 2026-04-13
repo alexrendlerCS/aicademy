@@ -38,10 +38,10 @@ export interface RetrievedChunk {
 
 export interface SearchParams {
   query: string;
-  moduleId: string;
-  lessonId?: string;
-  matchCount?: number;
-  matchThreshold?: number;
+  moduleId?: string;      // Optional: filter by module
+  lessonId?: string;      // Optional: filter by lesson
+  matchCount?: number;    // Default: 5
+  matchThreshold?: number; // Default: 0.5 (50% similarity)
 }
 
 export interface EmbeddingResult {
