@@ -44,6 +44,18 @@ export default function Home() {
           <div className="container mx-auto px-4 md:px-6 max-w-7xl">
             <div className="grid gap-6 lg:grid-cols-2 lg:gap-12 xl:grid-cols-2">
               <div className="flex flex-col justify-center space-y-4">
+                {/* Demo Button - Prominent placement */}
+                <div className="mb-2">
+                  <Button
+                    size="lg"
+                    onClick={() => setShowRAGDemoModal(true)}
+                    className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 font-semibold text-lg px-8"
+                  >
+                    <Sparkles className="h-5 w-5 mr-2" />
+                    See How Our AI Works
+                  </Button>
+                </div>
+
                 <div className="space-y-2">
                   <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none">
                     AI-Enhanced Learning for the Modern Classroom
@@ -60,8 +72,7 @@ export default function Home() {
                     <Link href="/login?role=teacher">
                       <Button
                         size="lg"
-                        variant="outline"
-                        className="w-full border-orange-500 hover:bg-orange-50 hover:text-orange-600 transition-colors duration-200"
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors duration-200"
                       >
                         Teacher Login
                       </Button>
@@ -69,53 +80,22 @@ export default function Home() {
                     <Link href="/login?role=student">
                       <Button
                         size="lg"
-                        variant="outline"
-                        className="w-full border-orange-500 hover:bg-orange-50 hover:text-orange-600 transition-colors duration-200"
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white transition-colors duration-200"
                       >
                         Student Login
                       </Button>
                     </Link>
                   </div>
                   
-                  {/* Demo Buttons Row */}
+                  {/* Try Demo Button - Under Construction */}
                   <div className="flex flex-col gap-2 min-[400px]:flex-row">
                     <Button
                       size="lg"
-                      onClick={() => setShowDemoModal(true)}
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 font-semibold relative overflow-hidden group"
+                      disabled
+                      className="w-full bg-orange-200 text-orange-400 cursor-not-allowed relative"
                     >
-                      <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-orange-400 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-                      <span className="relative flex items-center justify-center gap-2">
-                        Try Demo
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="animate-pulse"
-                        >
-                          <path d="M5 12h14" />
-                          <path d="m12 5 7 7-7 7" />
-                        </svg>
-                      </span>
-                    </Button>
-                    
-                    <Button
-                      size="lg"
-                      onClick={() => setShowRAGDemoModal(true)}
-                      className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 font-semibold relative overflow-hidden group"
-                    >
-                      <span className="relative flex items-center justify-center gap-2">
-                        <Sparkles className="h-5 w-5" />
-                        See AI Demo
-                        <span className="absolute -top-1 -right-1 bg-yellow-400 text-xs text-black px-2 py-0.5 rounded-full font-bold">
-                          NEW
-                        </span>
+                      <span className="flex items-center justify-center gap-2">
+                        Try Free Demo (Coming Soon)
                       </span>
                     </Button>
                   </div>

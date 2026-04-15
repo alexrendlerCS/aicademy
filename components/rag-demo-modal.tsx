@@ -121,6 +121,13 @@ I can help answer questions about Science, Reading, Math, and more!`,
         {/* Hidden title for accessibility */}
         <DialogTitle className="sr-only">AI Tutor Demo Chat</DialogTitle>
         
+        {/* Demo Disclaimer Banner */}
+        <div className="px-4 py-2 bg-yellow-50 dark:bg-yellow-950 border-b border-yellow-200 dark:border-yellow-800">
+          <p className="text-xs text-center text-yellow-800 dark:text-yellow-200">
+            <strong>For Demonstration Purposes Only.</strong> No LLM API used for cost purposes - responses are pre-generated to showcase RAG functionality.
+          </p>
+        </div>
+        
         {/* Chat-style Header */}
         <div className="p-4 border-b bg-background flex items-center justify-between">
           <div className="flex items-center gap-3">
