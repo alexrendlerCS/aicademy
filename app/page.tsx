@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { DemoModal } from "@/components/demo-modal";
+import { RAGDemoModal } from "@/components/rag-demo-modal";
 
 export default function Home() {
   const [showDemoModal, setShowDemoModal] = useState(false);
+  const [showRAGDemoModal, setShowRAGDemoModal] = useState(false);
 
   return (
     <div className="flex min-h-screen flex-col items-center w-full">
@@ -73,6 +75,10 @@ export default function Home() {
                         Student Login
                       </Button>
                     </Link>
+                  </div>
+                  
+                  {/* Demo Buttons Row */}
+                  <div className="flex flex-col gap-2 min-[400px]:flex-row">
                     <Button
                       size="lg"
                       onClick={() => setShowDemoModal(true)}
@@ -98,7 +104,22 @@ export default function Home() {
                         </svg>
                       </span>
                     </Button>
+                    
+                    <Button
+                      size="lg"
+                      onClick={() => setShowRAGDemoModal(true)}
+                      className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 font-semibold relative overflow-hidden group"
+                    >
+                      <span className="relative flex items-center justify-center gap-2">
+                        <Sparkles className="h-5 w-5" />
+                        See AI Demo
+                        <span className="absolute -top-1 -right-1 bg-yellow-400 text-xs text-black px-2 py-0.5 rounded-full font-bold">
+                          NEW
+                        </span>
+                      </span>
+                    </Button>
                   </div>
+                  
                   <div className="text-sm text-muted-foreground">
                     Don't have an account?{" "}
                     <Link
@@ -264,6 +285,10 @@ export default function Home() {
       <DemoModal
         isOpen={showDemoModal}
         onClose={() => setShowDemoModal(false)}
+      />
+      <RAGDemoModal
+        open={showRAGDemoModal}
+        onOpenChange={setShowRAGDemoModal}
       />
       <footer className="w-full border-t">
         <div className="max-w-7xl mx-auto flex flex-col gap-2 sm:flex-row py-6 items-center px-4 md:px-6">
