@@ -121,12 +121,19 @@ export async function POST(req: NextRequest) {
       messageCount: messages?.length || 0,
     });
 
-    // Generate system prompt with context
+    // Extract the latest user message for RAG search
+    const latestUserMessage = messages && messages.length > 0
+      ? messages[messages.length - 1]?.content || ""
+      : "";
+
+    console.log("💬 Latest user query:", latestUserMessage.substring(0, 100));
+
+    // Generate system prompt with context and user query
     const systemPrompt = await generateSystemPrompt({
       userId,
       moduleId,
       lessonId,
-    });
+    }, latestUserMessage);
 
     // Add system prompt as first message
     const messagesWithSystem = [

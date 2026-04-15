@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { searchLessonChunks, formatChunksForPrompt } from "./rag/search-lesson-chunks";
 
 interface StudentContext {
   userId: string;
@@ -6,7 +7,10 @@ interface StudentContext {
   lessonId?: string;
 }
 
-export async function generateSystemPrompt(context: StudentContext) {
+export async function generateSystemPrompt(
+  context: StudentContext,
+  userQuery?: string
+) {
   // Fetch student data
   const { data: studentData } = await supabase
     .from("students")
@@ -14,7 +18,7 @@ export async function generateSystemPrompt(context: StudentContext) {
     .eq("id", context.userId)
     .single();
 
-  // Fetch module data
+  // Fetch module data (including subject for filtering)
   const { data: moduleData } = await supabase
     .from("modules")
     .select("*")
@@ -23,6 +27,8 @@ export async function generateSystemPrompt(context: StudentContext) {
 
   // Fetch lesson data if lessonId is provided
   let lessonData = null;
+  let relevantContent = "No lesson content provided";
+  
   if (context.lessonId) {
     const { data } = await supabase
       .from("lessons")
@@ -30,6 +36,47 @@ export async function generateSystemPrompt(context: StudentContext) {
       .eq("id", context.lessonId)
       .single();
     lessonData = data;
+    
+    // Use RAG to retrieve relevant chunks if user query is provided
+    if (userQuery && lessonData && moduleData) {
+      // HYBRID APPROACH with SUBJECT FILTERING (Option C Enhanced):
+      // Step 1: Try within current lesson with higher threshold (0.5)
+      let chunks = await searchLessonChunks({
+        query: userQuery,
+        lessonId: context.lessonId,
+        matchCount: 3,
+        matchThreshold: 0.5,
+        useServiceRole: true,
+        subject: moduleData.subject, // FILTER BY SUBJECT
+      });
+      
+      // Step 2: If we got fewer than 2 results, expand to module with lower threshold
+      if (chunks.length < 2) {
+        const moduleChunks = await searchLessonChunks({
+          query: userQuery,
+          moduleId: context.moduleId,
+          matchCount: 3,
+          matchThreshold: 0.4,
+          useServiceRole: true,
+          subject: moduleData.subject, // FILTER BY SUBJECT
+        });
+        
+        // Merge and deduplicate
+        const existingIds = new Set(chunks.map(r => r.id));
+        const newChunks = moduleChunks.filter(r => !existingIds.has(r.id));
+        chunks = [...chunks, ...newChunks].slice(0, 3);
+      }
+      
+      if (chunks.length > 0) {
+        relevantContent = formatChunksForPrompt(chunks);
+      } else {
+        // Fallback to full lesson content if no relevant chunks found
+        relevantContent = lessonData.content || "No lesson content provided";
+      }
+    } else if (lessonData) {
+      // If no query provided, use full lesson content (backward compatibility)
+      relevantContent = lessonData.content || "No lesson content provided";
+    }
   }
 
   // Fetch recent progress
@@ -66,7 +113,7 @@ You have access to the following information:
 - Student profile: ${studentData?.name || "Student"}, Level ${studentData?.level || "1"}
 - Current module: ${moduleData?.title || "Current Module"}
 - Current lesson: ${lessonData?.title || "Current Lesson"}
-- Lesson content: ${lessonData?.content || "No lesson content provided"}
+- Relevant lesson content: ${relevantContent}
 - Recent progress: ${progressPercentage}% complete
 - Recent quiz performance: ${quizPerformance}
 

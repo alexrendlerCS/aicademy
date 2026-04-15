@@ -34,6 +34,7 @@ export interface RetrievedChunk {
   chunkText: string;
   metadata: any;
   similarity: number;
+  subject?: string; // NEW: Subject from modules table for filtering
 }
 
 export interface SearchParams {

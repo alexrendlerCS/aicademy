@@ -1,0 +1,429 @@
+{
+  "results": [
+    {
+      "category": "Computer Science",
+      "description": "Machine learning",
+      "query": "How does machine learning work?",
+      "expectedSubject": "Computer Science",
+      "fullTokens": 8,
+      "without": {
+        "chunks": 0,
+        "tokens": 0,
+        "accuracy": 0,
+        "contamination": 1,
+        "avgSimilarity": 0
+      },
+      "with": {
+        "chunks": 0,
+        "tokens": 0,
+        "accuracy": 0,
+        "contamination": 1,
+        "avgSimilarity": 0
+      },
+      "reduction": 100,
+      "improvement": 0
+    },
+    {
+      "category": "Computer Science",
+      "description": "Neural networks",
+      "query": "What are neural networks?",
+      "expectedSubject": "Computer Science",
+      "fullTokens": 8,
+      "without": {
+        "chunks": 0,
+        "tokens": 0,
+        "accuracy": 0,
+        "contamination": 1,
+        "avgSimilarity": 0
+      },
+      "with": {
+        "chunks": 0,
+        "tokens": 0,
+        "accuracy": 0,
+        "contamination": 1,
+        "avgSimilarity": 0
+      },
+      "reduction": 100,
+      "improvement": 0
+    },
+    {
+      "category": "Computer Science",
+      "description": "AI basics",
+      "query": "Explain artificial intelligence basics",
+      "expectedSubject": "Computer Science",
+      "fullTokens": 9,
+      "without": {
+        "chunks": 0,
+        "tokens": 0,
+        "accuracy": 0,
+        "contamination": 1,
+        "avgSimilarity": 0
+      },
+      "with": {
+        "chunks": 0,
+        "tokens": 0,
+        "accuracy": 0,
+        "contamination": 1,
+        "avgSimilarity": 0
+      },
+      "reduction": 100,
+      "improvement": 0
+    },
+    {
+      "category": "Science",
+      "description": "Control flow",
+      "query": "How do I use if statements?",
+      "expectedSubject": "science",
+      "fullTokens": 136,
+      "without": {
+        "chunks": 3,
+        "tokens": 82,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.5901669945607847
+      },
+      "with": {
+        "chunks": 3,
+        "tokens": 82,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.5901669945607847
+      },
+      "reduction": 39.705882352941174,
+      "improvement": 0
+    },
+    {
+      "category": "Science",
+      "description": "Functions",
+      "query": "What are functions in programming?",
+      "expectedSubject": "science",
+      "fullTokens": 175,
+      "without": {
+        "chunks": 3,
+        "tokens": 97,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.661734602283441
+      },
+      "with": {
+        "chunks": 3,
+        "tokens": 97,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.661734602283441
+      },
+      "reduction": 44.57142857142857,
+      "improvement": 0
+    },
+    {
+      "category": "Science",
+      "description": "Cells",
+      "query": "How do cells work?",
+      "expectedSubject": "science",
+      "fullTokens": 204,
+      "without": {
+        "chunks": 2,
+        "tokens": 224,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.67566561652164
+      },
+      "with": {
+        "chunks": 2,
+        "tokens": 224,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.67566561652164
+      },
+      "reduction": -9.803921568627452,
+      "improvement": 0
+    },
+    {
+      "category": "Science",
+      "description": "Atmosphere",
+      "query": "What is the atmosphere?",
+      "expectedSubject": "science",
+      "fullTokens": 149,
+      "without": {
+        "chunks": 3,
+        "tokens": 100,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.7234728413179544
+      },
+      "with": {
+        "chunks": 3,
+        "tokens": 100,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.7234728413179544
+      },
+      "reduction": 32.88590604026846,
+      "improvement": 0
+    },
+    {
+      "category": "Science",
+      "description": "Sustainability",
+      "query": "How can we be more sustainable?",
+      "expectedSubject": "science",
+      "fullTokens": 150,
+      "without": {
+        "chunks": 2,
+        "tokens": 122,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.6543763786095605
+      },
+      "with": {
+        "chunks": 2,
+        "tokens": 122,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.6543763786095605
+      },
+      "reduction": 18.666666666666668,
+      "improvement": 0
+    },
+    {
+      "category": "Science",
+      "description": "Sustainable practices",
+      "query": "What is sustainable living?",
+      "expectedSubject": "science",
+      "fullTokens": 150,
+      "without": {
+        "chunks": 2,
+        "tokens": 122,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.6686910715546814
+      },
+      "with": {
+        "chunks": 2,
+        "tokens": 122,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.6686910715546814
+      },
+      "reduction": 18.666666666666668,
+      "improvement": 0
+    },
+    {
+      "category": "Science",
+      "description": "Cell biology",
+      "query": "How do cells divide?",
+      "expectedSubject": "science",
+      "fullTokens": 204,
+      "without": {
+        "chunks": 2,
+        "tokens": 224,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.6205475340417035
+      },
+      "with": {
+        "chunks": 2,
+        "tokens": 224,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.6205475340417035
+      },
+      "reduction": -9.803921568627452,
+      "improvement": 0
+    },
+    {
+      "category": "Reading",
+      "description": "Story conflict",
+      "query": "How do I create conflict in a story?",
+      "expectedSubject": "reading",
+      "fullTokens": 170,
+      "without": {
+        "chunks": 1,
+        "tokens": 57,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.710377479471632
+      },
+      "with": {
+        "chunks": 1,
+        "tokens": 57,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.710377479471632
+      },
+      "reduction": 66.47058823529412,
+      "improvement": 0
+    },
+    {
+      "category": "Reading",
+      "description": "Story structure",
+      "query": "What are the parts of a story?",
+      "expectedSubject": "reading",
+      "fullTokens": 197,
+      "without": {
+        "chunks": 1,
+        "tokens": 310,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.697800296106812
+      },
+      "with": {
+        "chunks": 1,
+        "tokens": 310,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.697800296106812
+      },
+      "reduction": -57.360406091370564,
+      "improvement": 0
+    },
+    {
+      "category": "Reading",
+      "description": "Show don't tell",
+      "query": "How do I show instead of tell?",
+      "expectedSubject": "reading",
+      "fullTokens": 152,
+      "without": {
+        "chunks": 1,
+        "tokens": 74,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.452486376230797
+      },
+      "with": {
+        "chunks": 1,
+        "tokens": 74,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.452486376230797
+      },
+      "reduction": 51.31578947368421,
+      "improvement": 0
+    },
+    {
+      "category": "Reading",
+      "description": "Dialogue writing",
+      "query": "How do I write good dialogue?",
+      "expectedSubject": "reading",
+      "fullTokens": 172,
+      "without": {
+        "chunks": 1,
+        "tokens": 71,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.661639065626522
+      },
+      "with": {
+        "chunks": 1,
+        "tokens": 71,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.661639065626522
+      },
+      "reduction": 58.720930232558146,
+      "improvement": 0
+    },
+    {
+      "category": "Reading",
+      "description": "Reading facts",
+      "query": "How do I read informational text?",
+      "expectedSubject": "reading",
+      "fullTokens": 195,
+      "without": {
+        "chunks": 1,
+        "tokens": 321,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.578237392393809
+      },
+      "with": {
+        "chunks": 1,
+        "tokens": 321,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.578237392393809
+      },
+      "reduction": -64.61538461538461,
+      "improvement": 0
+    },
+    {
+      "category": "Math",
+      "description": "Multiplication",
+      "query": "How do I multiply numbers?",
+      "expectedSubject": "math",
+      "fullTokens": 48,
+      "without": {
+        "chunks": 1,
+        "tokens": 48,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.718784684104283
+      },
+      "with": {
+        "chunks": 1,
+        "tokens": 48,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.718784684104283
+      },
+      "reduction": 0,
+      "improvement": 0
+    },
+    {
+      "category": "Math",
+      "description": "Real-life math",
+      "query": "How is math used in real life?",
+      "expectedSubject": "math",
+      "fullTokens": 158,
+      "without": {
+        "chunks": 1,
+        "tokens": 243,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.77821910307126
+      },
+      "with": {
+        "chunks": 1,
+        "tokens": 243,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.77821910307126
+      },
+      "reduction": -53.79746835443038,
+      "improvement": 0
+    },
+    {
+      "category": "Math",
+      "description": "Arithmetic",
+      "query": "What are basic arithmetic operations?",
+      "expectedSubject": "math",
+      "fullTokens": 135,
+      "without": {
+        "chunks": 1,
+        "tokens": 210,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.717459816731587
+      },
+      "with": {
+        "chunks": 1,
+        "tokens": 210,
+        "accuracy": 1,
+        "contamination": 0,
+        "avgSimilarity": 0.717459816731587
+      },
+      "reduction": -55.55555555555556,
+      "improvement": 0
+    }
+  ],
+  "summary": {
+    "avgReduction": 21.11484447141733,
+    "withoutAvgAccuracy": 0.8333333333333334,
+    "withAvgAccuracy": 0.8333333333333334,
+    "withoutAvgContamination": 0.16666666666666666,
+    "withAvgContamination": 0.16666666666666666,
+    "withAvgSimilarity": 0.5505366251459148,
+    "avgTokenSavings": 6.388888888888889,
+    "improvementPercent": 0,
+    "contaminationReduction": 0
+  }
+}

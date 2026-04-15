@@ -48,7 +48,7 @@ function getSupabase(useServiceRole: boolean = false): SupabaseClient {
  * @returns Array of relevant chunks sorted by similarity
  */
 export async function searchLessonChunks(
-  params: SearchParams & { useServiceRole?: boolean }
+  params: SearchParams & { useServiceRole?: boolean; subject?: string }
 ): Promise<RetrievedChunk[]> {
   const {
     query,
@@ -57,6 +57,7 @@ export async function searchLessonChunks(
     matchCount = 5,
     matchThreshold = 0.5,
     useServiceRole = false,
+    subject,
   } = params;
 
   try {
@@ -69,13 +70,17 @@ export async function searchLessonChunks(
 
     // Step 3: Call Supabase RPC function for vector search
     const supabase = getSupabase(useServiceRole);
-    const { data, error } = await supabase.rpc('search_lesson_chunks', {
+    
+    const rpcParams: any = {
       query_embedding: vectorString,
       match_module_id: moduleId || null,
       match_lesson_id: lessonId || null,
       match_threshold: matchThreshold,
       match_count: matchCount,
-    });
+      match_subject: subject || null, // Add subject parameter
+    };
+    
+    const { data, error } = await supabase.rpc('search_lesson_chunks', rpcParams);
 
     if (error) {
       console.error('Vector search error:', error);
@@ -92,6 +97,7 @@ export async function searchLessonChunks(
       chunkText: row.chunk_text,
       metadata: row.metadata,
       similarity: row.similarity,
+      subject: row.subject, // Include subject for debugging
     }));
 
     return chunks;
